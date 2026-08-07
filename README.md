@@ -17,12 +17,38 @@ A suite of ergonomic V utility modules (`fileutils` and `sqliteutils`) for commo
 - Append JSON objects as newline-delimited JSON (NDJSON)
 
 ### `sqliteutils`
+
+**Connection & Inspection**
 - Automatic parent directory creation when opening SQLite database files
-- Simple Key-Value store table management (`create_kv_table`, `set_kv`, `get_kv`, `delete_kv`, `get_all_kv`)
-- JSON Document Store for structs (`create_json_store`, `save_struct`, `load_struct`, `load_all_structs`, `delete_struct`)
-- Dynamic SELECT queries mapped directly to `[]map[string]string` (`query_maps`, `query_one_map`)
-- Batch SQL execution inside managed transactions with automatic rollback (`execute_batch`)
-- Table inspection & helper utilities (`table_exists`, `get_table_names`, `count_rows`)
+- Table inspection: `table_exists`, `get_table_names`, `count_rows`
+
+**Schema / DDL**
+- `drop_table` (with optional `IF EXISTS` via `force` flag)
+- `rename_table`, `clear_table` (truncate equivalent)
+- `get_column_names`, `column_exists`, `table_row_counts`
+
+**Key-Value Store**
+- Full KV CRUD: `create_kv_table`, `set_kv`, `get_kv`, `delete_kv`, `get_all_kv`
+- Extended KV: `kv_exists`, `get_kv_or` (never-error fallback), `increment_kv`, `clear_kv`
+
+**JSON Document Store (struct persistence)**
+- Full doc CRUD: `create_json_store`, `save_struct`, `load_struct`, `load_all_structs`, `delete_struct`
+- Extended doc store: `struct_exists`, `count_structs`, `list_struct_ids`, `delete_all_structs`
+
+**Queries (all parameterized — SQL-injection safe)**
+- `query_maps`, `query_maps_params` — rows as `[]map[string]string`
+- `query_one_map`, `query_one_map_params` — first row as `map[string]string`
+- `query_scalar` — single aggregate value (COUNT, SUM, MAX…)
+- `query_column` — first column of all rows as `[]string`
+
+**Transactions**
+- `execute_batch` — static SQL statements in a single atomic transaction
+- `execute_batch_params` — parameterized statements via `[]ParamStatement`
+- `with_transaction` — closure-style transaction with automatic rollback on error
+
+**Security**
+- All user-supplied *values* use `?` parameter binding via `exec_param` / `exec_param_many`
+- All table/column *identifiers* are validated through `sanitize_identifier` (allowlist: letters, digits, `_`, `-`)
 
 ## Quick Start Examples
 
@@ -68,14 +94,13 @@ fn main() {
 
 ### 2. SQLite Utilities (`sqliteutils`)
 
-Store key-value settings, persist structs, and run dynamic queries with SQLite:
+Store key-value settings, persist structs, run safe parameterized queries, and manage schema with SQLite:
 
 ```v
 module main
 
 import sqliteutils
 
-// Define your data structure
 struct User {
     name  string
     email string
@@ -86,29 +111,49 @@ fn main() {
     mut db := sqliteutils.open_db('data/app.db')!
     println('Connected to SQLite database!')
 
-    // 2. Key-Value Store Example: Save app configuration settings
+    // 2. Schema helpers
+    sqliteutils.exec_sql(mut db, 'CREATE TABLE IF NOT EXISTS logs (msg TEXT, level TEXT);')!
+    cols := sqliteutils.get_column_names(mut db, 'logs')!
+    println('logs columns: ${cols}') // ['msg', 'level']
+
+    // 3. Key-Value Store — save app settings
     sqliteutils.create_kv_table(mut db, 'settings')!
     sqliteutils.set_kv(mut db, 'settings', 'theme', 'dark')!
     sqliteutils.set_kv(mut db, 'settings', 'notifications', 'enabled')!
 
-    // Read back a setting with fallback default value
-    theme := sqliteutils.get_kv(mut db, 'settings', 'theme') or { 'light' }
+    // get_kv_or never errors — returns default when key is absent
+    theme := sqliteutils.get_kv_or(mut db, 'settings', 'theme', 'light')
     println('Current theme: ${theme}')
 
-    // 3. JSON Struct Store Example: Store struct objects directly in SQLite
+    // Increment a counter (creates key automatically)
+    views := sqliteutils.increment_kv(mut db, 'settings', 'page_views', 1)!
+    println('Page views: ${views}')
+
+    // 4. JSON Struct Store — persist structs directly in SQLite
     sqliteutils.create_json_store(mut db, 'users')!
     alice := User{ name: 'Alice', email: 'alice@example.com' }
     sqliteutils.save_struct(mut db, 'users', 'user_101', alice)!
 
-    // Load struct by ID
-    loaded_user := sqliteutils.load_struct[User](mut db, 'users', 'user_101')!
-    println('Loaded user from SQLite: ${loaded_user.name} (${loaded_user.email})')
-
-    // 4. Dynamic Query Example: Query rows as a list of column-value maps
-    rows := sqliteutils.query_maps(mut db, "SELECT key, val FROM settings;")!
-    for row in rows {
-        println('Setting: ${row['key']} = ${row['val']}')
+    // Check existence before loading
+    if sqliteutils.struct_exists(mut db, 'users', 'user_101')! {
+        loaded := sqliteutils.load_struct[User](mut db, 'users', 'user_101')!
+        println('Loaded: ${loaded.name} (${loaded.email})')
     }
+
+    // 5. Parameterized queries — safe from SQL injection
+    sqliteutils.exec_sql(mut db, 'CREATE TABLE orders (user TEXT, amount INT);')!
+    sqliteutils.exec_param_many(mut db, 'INSERT INTO orders VALUES (?, ?)', ['alice', '50'])
+    sqliteutils.exec_param_many(mut db, 'INSERT INTO orders VALUES (?, ?)', ['alice', '30'])
+
+    total := sqliteutils.query_scalar(mut db, 'SELECT SUM(amount) FROM orders WHERE user = ?', ['alice'])!
+    println('Alice total: ${total}')
+
+    // 6. Closure-style transaction — auto-rollback on error
+    sqliteutils.with_transaction(mut db, fn [mut db] () ! {
+        sqliteutils.set_kv(mut db, 'settings', 'step', '1')!
+        sqliteutils.set_kv(mut db, 'settings', 'status', 'ok')!
+    })!
+    println('Transaction committed!')
 }
 ```
 
@@ -125,3 +170,4 @@ The demo program ([main.v](main.v)) creates output files in `.fileutils_demo/` a
 ## API Documentation
 
 For full details on every available function and parameter, see [API.md](API.md).
+

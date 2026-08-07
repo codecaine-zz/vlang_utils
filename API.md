@@ -555,6 +555,42 @@ println('Found user: ${user['name']}') // Output: Alice
 
 ---
 
+### `query_maps_params(mut db sqlite.DB, query string, params []string) ![]map[string]string`
+
+Executes a **parameterized** `SELECT` query with `?` placeholders and returns rows as a slice of maps. Use this variant whenever the query includes user-supplied filter values.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE employees (name TEXT, dept TEXT, salary INT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO employees VALUES ('Alice','Eng',90),('Bob','Eng',80),('Carol','HR',70);")!
+
+// Safe parameterized filter — user input goes in params, not the query string
+rows := sqliteutils.query_maps_params(mut db,
+    'SELECT name, salary FROM employees WHERE dept = ? ORDER BY salary DESC',
+    ['Eng'])!
+for row in rows {
+    println('${row['name']}: ${row['salary']}')
+}
+```
+
+---
+
+### `query_one_map_params(mut db sqlite.DB, query string, params []string) !map[string]string`
+
+Executes a **parameterized** `SELECT` query and returns the first matching row as a map. Returns an error if no rows match.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INT, name TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO users VALUES (1, 'Alice');")!
+
+// Safe lookup by user-supplied id
+row := sqliteutils.query_one_map_params(mut db,
+    'SELECT name FROM users WHERE id = ?',
+    ['1'])!
+println('Found: ${row['name']}') // Output: Alice
+```
+
 ### `execute_batch(mut db sqlite.DB, statements []string) !`
 
 Executes multiple SQL statements inside a single transaction (`BEGIN TRANSACTION ... COMMIT`). If any statement fails, the transaction automatically rolls back.
@@ -573,4 +609,295 @@ batch := [
 
 sqliteutils.execute_batch(mut db, batch)!
 println('Batch transaction executed successfully!')
+```
+
+---
+
+### `execute_batch_params(mut db sqlite.DB, statements []ParamStatement) !`
+
+Executes multiple **parameterized** SQL statements atomically. Each `ParamStatement` pairs a query string with its bound values. Rolls back automatically on any error.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE log (msg TEXT, level TEXT);')!
+
+batch := [
+    sqliteutils.ParamStatement{ query: 'INSERT INTO log VALUES (?, ?)', params: ['boot', 'INFO'] },
+    sqliteutils.ParamStatement{ query: 'INSERT INTO log VALUES (?, ?)', params: ['ready', 'INFO'] },
+]
+
+sqliteutils.execute_batch_params(mut db, batch)!
+println('Parameterized batch executed!')
+```
+
+---
+
+## Schema / DDL Helpers
+
+### `drop_table(mut db sqlite.DB, table_name string, force bool) !`
+
+Drops a table. Pass `force: true` to use `DROP TABLE IF EXISTS` — no error is returned when the table is already absent.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE tmp (id INT);')!
+
+// Normal drop — errors if table is missing
+sqliteutils.drop_table(mut db, 'tmp', false)!
+
+// Force drop — safe even when table doesn't exist
+sqliteutils.drop_table(mut db, 'tmp', true)!
+println('Dropped!')
+```
+
+---
+
+### `rename_table(mut db sqlite.DB, old_name string, new_name string) !`
+
+Renames a table using `ALTER TABLE … RENAME TO`. Both names must contain only letters, digits, underscores, or hyphens.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE old_name (id INT);')!
+
+sqliteutils.rename_table(mut db, 'old_name', 'new_name')!
+println('Renamed!')
+```
+
+---
+
+### `clear_table(mut db sqlite.DB, table_name string) !`
+
+Removes all rows from a table without dropping it (SQLite's equivalent of `TRUNCATE`).
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE events (msg TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO events VALUES ('one'),('two');")!
+
+sqliteutils.clear_table(mut db, 'events')!
+count := sqliteutils.count_rows(mut db, 'events')!
+println('Rows after clear: ${count}') // Output: 0
+```
+
+---
+
+### `get_column_names(mut db sqlite.DB, table_name string) ![]string`
+
+Returns the ordered list of column names for a table via `PRAGMA table_info`.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INT, name TEXT, email TEXT);')!
+
+cols := sqliteutils.get_column_names(mut db, 'users')!
+println('Columns: ${cols}') // Output: ['id', 'name', 'email']
+```
+
+---
+
+### `column_exists(mut db sqlite.DB, table_name string, column_name string) !bool`
+
+Checks whether a specific column exists in a table.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INT, name TEXT);')!
+
+println(sqliteutils.column_exists(mut db, 'users', 'name')!)  // true
+println(sqliteutils.column_exists(mut db, 'users', 'phone')!) // false
+```
+
+---
+
+### `table_row_counts(mut db sqlite.DB) !map[string]int`
+
+Returns a map of every non-system table name to its current row count. Useful for quick database health checks.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE a (x INT);')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE b (x INT);')!
+sqliteutils.exec_sql(mut db, 'INSERT INTO a VALUES (1),(2);')!
+
+counts := sqliteutils.table_row_counts(mut db)!
+println(counts) // {'a': 2, 'b': 0}
+```
+
+---
+
+## Extended Key-Value Helpers
+
+### `kv_exists(mut db sqlite.DB, table_name string, key string) !bool`
+
+Checks whether a key is present in a key-value table without fetching the value.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_kv_table(mut db, 'cfg')!
+sqliteutils.set_kv(mut db, 'cfg', 'theme', 'dark')!
+
+println(sqliteutils.kv_exists(mut db, 'cfg', 'theme')!)  // true
+println(sqliteutils.kv_exists(mut db, 'cfg', 'ghost')!)  // false
+```
+
+---
+
+### `get_kv_or(mut db sqlite.DB, table_name string, key string, default_val string) string`
+
+Gets a value by key, returning `default_val` if the key is absent. **Never errors** — designed for the zero-friction RAD read pattern.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_kv_table(mut db, 'cfg')!
+
+lang := sqliteutils.get_kv_or(mut db, 'cfg', 'lang', 'en')
+println('Language: ${lang}') // Output: en  (key absent, default returned)
+```
+
+---
+
+### `increment_kv(mut db sqlite.DB, table_name string, key string, amount int) !int`
+
+Atomically increments an integer stored at `key` by `amount`. Creates the key with value `amount` if it doesn't yet exist. Returns the updated value.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_kv_table(mut db, 'counters')!
+
+v1 := sqliteutils.increment_kv(mut db, 'counters', 'page_views', 1)!
+println(v1) // 1  (created from zero)
+
+v2 := sqliteutils.increment_kv(mut db, 'counters', 'page_views', 1)!
+println(v2) // 2
+```
+
+---
+
+### `clear_kv(mut db sqlite.DB, table_name string) !`
+
+Removes all key-value pairs from a table while keeping the table itself intact.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_kv_table(mut db, 'session')!
+sqliteutils.set_kv(mut db, 'session', 'token', 'abc123')!
+
+sqliteutils.clear_kv(mut db, 'session')!
+println(sqliteutils.count_rows(mut db, 'session')!) // 0
+```
+
+---
+
+## Extended JSON Document Store Helpers
+
+### `struct_exists(mut db sqlite.DB, table_name string, id string) !bool`
+
+Checks whether a document with the given ID exists in a JSON store table.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_json_store(mut db, 'users')!
+
+struct User { name string }
+sqliteutils.save_struct(mut db, 'users', 'u1', User{ name: 'Alice' })!
+
+println(sqliteutils.struct_exists(mut db, 'users', 'u1')!)  // true
+println(sqliteutils.struct_exists(mut db, 'users', 'u99')!) // false
+```
+
+---
+
+### `count_structs(mut db sqlite.DB, table_name string) !int`
+
+Returns the number of documents stored in a JSON store table. Alias for `count_rows` with clearer intent.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_json_store(mut db, 'items')!
+sqliteutils.save_struct(mut db, 'items', 'i1', map[string]string{})!
+sqliteutils.save_struct(mut db, 'items', 'i2', map[string]string{})!
+
+println(sqliteutils.count_structs(mut db, 'items')!) // 2
+```
+
+---
+
+### `delete_all_structs(mut db sqlite.DB, table_name string) !`
+
+Deletes every document from a JSON store table while keeping the table schema intact.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_json_store(mut db, 'cache')!
+sqliteutils.save_struct(mut db, 'cache', 'c1', map[string]string{})!
+
+sqliteutils.delete_all_structs(mut db, 'cache')!
+println(sqliteutils.count_structs(mut db, 'cache')!) // 0
+```
+
+---
+
+### `list_struct_ids(mut db sqlite.DB, table_name string) ![]string`
+
+Returns a slice of all document IDs stored in a JSON store table. Useful for iterating or bulk-loading records.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_json_store(mut db, 'posts')!
+sqliteutils.save_struct(mut db, 'posts', 'post_1', map[string]string{})!
+sqliteutils.save_struct(mut db, 'posts', 'post_2', map[string]string{})!
+
+ids := sqliteutils.list_struct_ids(mut db, 'posts')!
+println('Post IDs: ${ids}') // ['post_1', 'post_2']
+```
+
+---
+
+## Query Helpers
+
+### `query_scalar(mut db sqlite.DB, query string, params []string) !string`
+
+Executes a parameterized query and returns the **first column of the first row** as a string. Ideal for scalar aggregates (`COUNT`, `MAX`, `SUM`, etc.).
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE orders (user TEXT, amount INT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO orders VALUES ('alice', 50), ('alice', 30), ('bob', 20);")!
+
+total := sqliteutils.query_scalar(mut db, 'SELECT SUM(amount) FROM orders WHERE user = ?', ['alice'])!
+println('Alice total: ${total}') // 80
+```
+
+---
+
+### `query_column(mut db sqlite.DB, query string, params []string) ![]string`
+
+Executes a parameterized query and returns **every value from the first column** as a `[]string`. Useful for fetching a list of IDs, names, tags, etc.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE tags (name TEXT, active INT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO tags VALUES ('v','1'),('vlang','1'),('draft','0');")!
+
+active_tags := sqliteutils.query_column(mut db, 'SELECT name FROM tags WHERE active = ?', ['1'])!
+println('Active tags: ${active_tags}') // ['v', 'vlang']
+```
+
+---
+
+### `with_transaction(mut db sqlite.DB, work fn () !) !`
+
+Runs a closure inside a `BEGIN / COMMIT` transaction. If the closure returns an error the transaction is automatically rolled back. A clean, closure-style alternative to `execute_batch`.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.create_kv_table(mut db, 'state')!
+
+sqliteutils.with_transaction(mut db, fn [mut db] () ! {
+    sqliteutils.set_kv(mut db, 'state', 'step', '1')!
+    sqliteutils.set_kv(mut db, 'state', 'status', 'ok')!
+})!
+
+println(sqliteutils.get_kv(mut db, 'state', 'status')!) // ok
 ```

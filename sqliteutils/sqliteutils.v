@@ -261,3 +261,170 @@ pub fn execute_batch_params(mut db sqlite.DB, statements []ParamStatement) ! {
 	}
 	db.exec('COMMIT;') or { return err }
 }
+
+// ─── Schema / DDL Helpers ────────────────────────────────────────────────────
+
+// Drops a table from the database. Pass force: true to use DROP TABLE IF EXISTS
+// (no error when the table is absent).
+pub fn drop_table(mut db sqlite.DB, table_name string, force bool) ! {
+	tbl := sanitize_identifier(table_name)!
+	if force {
+		db.exec('DROP TABLE IF EXISTS "${tbl}";') or { return err }
+	} else {
+		db.exec('DROP TABLE "${tbl}";') or { return err }
+	}
+}
+
+// Renames a table. Both names must pass identifier validation.
+pub fn rename_table(mut db sqlite.DB, old_name string, new_name string) ! {
+	old := sanitize_identifier(old_name)!
+	new_ := sanitize_identifier(new_name)!
+	db.exec('ALTER TABLE "${old}" RENAME TO "${new_}";') or { return err }
+}
+
+// Removes all rows from a table without dropping it (equivalent of TRUNCATE in SQLite).
+pub fn clear_table(mut db sqlite.DB, table_name string) ! {
+	tbl := sanitize_identifier(table_name)!
+	db.exec('DELETE FROM "${tbl}";') or { return err }
+}
+
+// Returns the list of column names for a given table.
+pub fn get_column_names(mut db sqlite.DB, table_name string) ![]string {
+	tbl := sanitize_identifier(table_name)!
+	// PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
+	rows := db.exec('PRAGMA table_info("${tbl}");') or { return err }
+	mut names := []string{}
+	for row in rows {
+		if row.vals.len >= 2 {
+			names << row.vals[1]
+		}
+	}
+	return names
+}
+
+// Reports whether a column exists in a table.
+pub fn column_exists(mut db sqlite.DB, table_name string, column_name string) !bool {
+	cols := get_column_names(mut db, table_name)!
+	return column_name in cols
+}
+
+// Returns a map of table_name -> row_count for every non-system table in the database.
+pub fn table_row_counts(mut db sqlite.DB) !map[string]int {
+	tables := get_table_names(mut db)!
+	mut result := map[string]int{}
+	for tbl in tables {
+		result[tbl] = count_rows(mut db, tbl)!
+	}
+	return result
+}
+
+// ─── Extended Key-Value Helpers ───────────────────────────────────────────────
+
+// Reports whether a key exists in a key-value table.
+pub fn kv_exists(mut db sqlite.DB, table_name string, key string) !bool {
+	tbl := sanitize_identifier(table_name)!
+	rows := db.exec_param('SELECT 1 FROM "${tbl}" WHERE key = ? LIMIT 1', key) or { return err }
+	return rows.len > 0
+}
+
+// Gets the value for a key from a key-value table, returning default_val when the key is absent.
+// Never errors — the zero-friction read pattern for RAD.
+pub fn get_kv_or(mut db sqlite.DB, table_name string, key string, default_val string) string {
+	return get_kv(mut db, table_name, key) or { default_val }
+}
+
+// Increments an integer stored at key by amount. Creates the key starting at amount if absent.
+// Returns the new value.
+pub fn increment_kv(mut db sqlite.DB, table_name string, key string, amount int) !int {
+	current := get_kv(mut db, table_name, key) or { '0' }
+	new_val := current.int() + amount
+	set_kv(mut db, table_name, key, new_val.str())!
+	return new_val
+}
+
+// Deletes all key-value pairs from a table while keeping the table intact.
+pub fn clear_kv(mut db sqlite.DB, table_name string) ! {
+	clear_table(mut db, table_name)!
+}
+
+// ─── Extended JSON Document Store Helpers ────────────────────────────────────
+
+// Reports whether a document with the given ID exists in a JSON store table.
+pub fn struct_exists(mut db sqlite.DB, table_name string, id string) !bool {
+	tbl := sanitize_identifier(table_name)!
+	rows := db.exec_param('SELECT 1 FROM "${tbl}" WHERE id = ? LIMIT 1', id) or { return err }
+	return rows.len > 0
+}
+
+// Returns the number of documents stored in a JSON store table.
+pub fn count_structs(mut db sqlite.DB, table_name string) !int {
+	return count_rows(mut db, table_name)
+}
+
+// Deletes all documents from a JSON store table while keeping the table intact.
+pub fn delete_all_structs(mut db sqlite.DB, table_name string) ! {
+	clear_table(mut db, table_name)!
+}
+
+// Returns every document ID stored in a JSON store table.
+pub fn list_struct_ids(mut db sqlite.DB, table_name string) ![]string {
+	tbl := sanitize_identifier(table_name)!
+	rows := db.exec('SELECT id FROM "${tbl}";') or { return err }
+	mut ids := []string{}
+	for row in rows {
+		if row.vals.len > 0 {
+			ids << row.vals[0]
+		}
+	}
+	return ids
+}
+
+// ─── Query Helpers ────────────────────────────────────────────────────────────
+
+// Executes a parameterized query and returns the first column of the first row as a string.
+// Ideal for scalar aggregates: COUNT, MAX, SUM, etc.
+//
+// Example:
+//   total := sqliteutils.query_scalar(mut db, 'SELECT COUNT(*) FROM orders WHERE status = ?', ['open'])!
+pub fn query_scalar(mut db sqlite.DB, query string, params []string) !string {
+	rows := db.exec_param_many(query, params) or { return err }
+	if rows.len == 0 || rows[0].vals.len == 0 {
+		return error('query_scalar: no rows returned')
+	}
+	return rows[0].vals[0]
+}
+
+// Executes a parameterized query and returns every value from the first column as a string slice.
+// Useful for fetching a list of IDs, names, tags, etc.
+//
+// Example:
+//   names := sqliteutils.query_column(mut db, 'SELECT name FROM users WHERE active = ?', ['1'])!
+pub fn query_column(mut db sqlite.DB, query string, params []string) ![]string {
+	rows := db.exec_param_many(query, params) or { return err }
+	mut values := []string{}
+	for row in rows {
+		if row.vals.len > 0 {
+			values << row.vals[0]
+		}
+	}
+	return values
+}
+
+// ─── Convenience Transaction Helper ──────────────────────────────────────────
+
+// Runs a closure inside a BEGIN / COMMIT transaction.
+// If the closure returns an error the transaction is rolled back automatically.
+//
+// Example:
+//   sqliteutils.with_transaction(mut db, fn [mut db] () ! {
+//       sqliteutils.set_kv(mut db, 'cfg', 'a', '1')!
+//       sqliteutils.set_kv(mut db, 'cfg', 'b', '2')!
+//   })!
+pub fn with_transaction(mut db sqlite.DB, work fn () !) ! {
+	db.exec('BEGIN TRANSACTION;') or { return err }
+	work() or {
+		db.exec('ROLLBACK;') or {}
+		return err
+	}
+	db.exec('COMMIT;') or { return err }
+}
