@@ -111,6 +111,7 @@ fn test_load_config_from_file() {
 }
 
 fn test_append_line_to_file_creates_parent_directories() {
+	os.rmdir_all('/tmp/nested') or {}
 	file_path := '/tmp/nested/dir/notes.log'
 
 	append_line_to_file(file_path, 'hello from nested dir') or { panic(err) }
@@ -118,7 +119,7 @@ fn test_append_line_to_file_creates_parent_directories() {
 	assert os.exists(file_path)
 	assert os.read_file(file_path) or { panic(err) } == 'hello from nested dir'
 
-	os.rm('/tmp/nested') or {}
+	os.rmdir_all('/tmp/nested') or {}
 }
 
 fn test_write_and_read_text_file() {
