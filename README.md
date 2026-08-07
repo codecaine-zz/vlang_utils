@@ -25,7 +25,14 @@ A suite of ergonomic V utility modules (`fileutils` and `sqliteutils`) for commo
 **Schema / DDL**
 - `drop_table` (with optional `IF EXISTS` via `force` flag)
 - `rename_table`, `clear_table` (truncate equivalent)
-- `get_column_names`, `column_exists`, `table_row_counts`
+- `get_column_names`, `column_exists`, `table_row_counts`, `get_table_schema`
+
+**Column Management** *(ALTER TABLE)*
+- `add_column(db, table, ColumnDef)` — add a single column with type/constraint expression
+- `add_columns(db, table, []ColumnDef)` — add multiple columns atomically (all-or-nothing)
+- `rename_column(db, table, old, new)` — rename a column, data preserved (SQLite 3.25+)
+- `drop_column(db, table, col)` — drop a single column (SQLite 3.35+)
+- `drop_columns(db, table, []col)` — drop multiple columns atomically (SQLite 3.35+)
 
 **Key-Value Store**
 - Full KV CRUD: `create_kv_table`, `set_kv`, `get_kv`, `delete_kv`, `get_all_kv`
@@ -109,6 +116,7 @@ struct User {
 fn main() {
     // 1. Open SQLite database (creates 'data/' folder automatically if missing)
     mut db := sqliteutils.open_db('data/app.db')!
+    defer { sqliteutils.close_db(mut db) or {} } // always release the file handle
     println('Connected to SQLite database!')
 
     // 2. Schema helpers

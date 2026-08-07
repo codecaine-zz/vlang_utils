@@ -280,6 +280,43 @@ println('Connected to database!')
 
 ---
 
+### `close_db(mut db sqlite.DB) !`
+
+Closes a SQLite database connection and releases all associated OS file handles. Always close a database when you are finished with it — leaving connections open can block other processes from writing to the same file.
+
+The idiomatic pattern is to call `close_db` via `defer` immediately after opening:
+
+```v
+mut db := sqliteutils.open_db('app.db')!
+defer { sqliteutils.close_db(mut db) or {} }
+
+// … do work …
+// close_db is called automatically when the function returns
+```
+
+---
+
+### `last_insert_id(db sqlite.DB) i64`
+
+Returns the row ID (typically the `INTEGER PRIMARY KEY`) assigned to the most recently inserted row on this connection. Returns `0` if no `INSERT` has been performed yet. Call this **immediately** after an `INSERT` before any other statement.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+defer { sqliteutils.close_db(mut db) or {} }
+
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);')!
+
+sqliteutils.exec_sql(mut db, "INSERT INTO users (name) VALUES ('Alice');")!
+alice_id := sqliteutils.last_insert_id(db)
+println('Alice inserted with id: ${alice_id}') // 1
+
+sqliteutils.exec_sql(mut db, "INSERT INTO users (name) VALUES ('Bob');")!
+bob_id := sqliteutils.last_insert_id(db)
+println('Bob inserted with id: ${bob_id}') // 2
+```
+
+---
+
 ### `exec_sql(mut db sqlite.DB, query string) !`
 
 Executes raw DDL or DML SQL statements (`CREATE TABLE`, `INSERT`, `UPDATE`, `DELETE`) without returning rows.
@@ -900,4 +937,147 @@ sqliteutils.with_transaction(mut db, fn [mut db] () ! {
 })!
 
 println(sqliteutils.get_kv(mut db, 'state', 'status')!) // ok
+```
+
+---
+
+## Column Management Helpers
+
+> **SQLite version requirements**
+> - `add_column` / `add_columns` — SQLite 3.1+ (always available)
+> - `rename_column` — SQLite 3.25+ (September 2018)
+> - `drop_column` / `drop_columns` — SQLite 3.35+ (March 2021)
+
+### `ColumnDef`
+
+A struct used with `add_column` and `add_columns` to describe a new column.
+
+```v
+pub struct ColumnDef {
+pub:
+    name     string // column identifier — validated by sanitize_identifier
+    sql_type string // SQLite type expression, e.g. "TEXT", "INTEGER NOT NULL DEFAULT 0"
+}
+```
+
+---
+
+### `add_column(mut db sqlite.DB, table_name string, col ColumnDef) !`
+
+Adds a single new column to an existing table using `ALTER TABLE … ADD COLUMN`.
+The column name and type expression are both validated before the query runs.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);')!
+
+// Add a plain text column
+sqliteutils.add_column(mut db, 'users', sqliteutils.ColumnDef{
+    name:     'email'
+    sql_type: 'TEXT'
+})!
+
+// Add a column with constraints and a default value
+sqliteutils.add_column(mut db, 'users', sqliteutils.ColumnDef{
+    name:     'score'
+    sql_type: 'INTEGER NOT NULL DEFAULT 0'
+})!
+
+cols := sqliteutils.get_column_names(mut db, 'users')!
+println(cols) // ['id', 'name', 'email', 'score']
+```
+
+---
+
+### `add_columns(mut db sqlite.DB, table_name string, cols []ColumnDef) !`
+
+Adds multiple columns inside a single transaction. If any column name or type is invalid, or if SQLite rejects any of the `ALTER TABLE` statements, the entire batch is rolled back — either all columns are added or none are.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT);')!
+
+sqliteutils.add_columns(mut db, 'products', [
+    sqliteutils.ColumnDef{ name: 'price', sql_type: 'REAL' },
+    sqliteutils.ColumnDef{ name: 'stock', sql_type: 'INTEGER NOT NULL DEFAULT 0' },
+    sqliteutils.ColumnDef{ name: 'sku',   sql_type: 'TEXT' },
+])!
+
+println(sqliteutils.get_column_names(mut db, 'products')!)
+// ['id', 'name', 'price', 'stock', 'sku']
+```
+
+---
+
+### `rename_column(mut db sqlite.DB, table_name string, old_col string, new_col string) !`
+
+Renames a column using `ALTER TABLE … RENAME COLUMN`. Existing data is preserved under the new column name. Both old and new names must pass identifier validation.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INT, fname TEXT, age INT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO users VALUES (1, 'Alice', 30);")!
+
+sqliteutils.rename_column(mut db, 'users', 'fname', 'first_name')!
+
+cols := sqliteutils.get_column_names(mut db, 'users')!
+println(cols) // ['id', 'first_name', 'age']
+
+// Data is preserved
+rows := sqliteutils.query_maps(mut db, 'SELECT first_name FROM users;')!
+println(rows[0]['first_name']) // Alice
+```
+
+---
+
+### `drop_column(mut db sqlite.DB, table_name string, col_name string) !`
+
+Drops a single column from a table using `ALTER TABLE … DROP COLUMN`. The column name must pass identifier validation. Note: SQLite prevents dropping a column that is a primary key, part of an index, or referenced by a UNIQUE/CHECK constraint.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE events (id INT, msg TEXT, legacy TEXT, ts TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO events VALUES (1, 'boot', 'old_data', '2024-01-01');")!
+
+sqliteutils.drop_column(mut db, 'events', 'legacy')!
+
+cols := sqliteutils.get_column_names(mut db, 'events')!
+println(cols) // ['id', 'msg', 'ts']
+```
+
+---
+
+### `drop_columns(mut db sqlite.DB, table_name string, col_names []string) !`
+
+Drops multiple columns inside a single transaction. If any column name is invalid or SQLite rejects any drop, the entire batch is rolled back — either all columns are dropped or none are.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE logs (id INT, msg TEXT, level TEXT, host TEXT, pid INT);')!
+
+// Remove infrastructure columns that are no longer needed
+sqliteutils.drop_columns(mut db, 'logs', ['host', 'pid'])!
+
+cols := sqliteutils.get_column_names(mut db, 'logs')!
+println(cols) // ['id', 'msg', 'level']
+```
+
+---
+
+### `get_table_schema(mut db sqlite.DB, table_name string) ![]map[string]string`
+
+Returns full `PRAGMA table_info` schema for a table as a slice of maps. Each map contains the keys `"cid"`, `"name"`, `"type"`, `"notnull"`, `"dflt_value"`, and `"pk"`. Useful for schema introspection and migration tools.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db,
+    'CREATE TABLE orders (id INTEGER PRIMARY KEY, user TEXT NOT NULL, amount REAL);')!
+
+schema := sqliteutils.get_table_schema(mut db, 'orders')!
+for col in schema {
+    println('${col['name']} (${col['type']}) pk=${col['pk']} notnull=${col['notnull']}')
+}
+// id (INTEGER) pk=1 notnull=0
+// user (TEXT) pk=0 notnull=1
+// amount (REAL) pk=0 notnull=0
 ```

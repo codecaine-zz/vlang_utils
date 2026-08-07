@@ -40,6 +40,29 @@ pub fn open_db(path string) !sqlite.DB {
 	return db
 }
 
+// Closes a SQLite database connection, releasing all associated resources.
+// Always call this when you are finished with a database — open file handles
+// prevent other processes from writing to the same file (especially on Windows).
+//
+// Example:
+//   mut db := sqliteutils.open_db('app.db')!
+//   defer { sqliteutils.close_db(mut db) or {} }
+pub fn close_db(mut db sqlite.DB) ! {
+	db.close() or { return err }
+}
+
+// Returns the row ID of the most recent successful INSERT into the database.
+// Use this immediately after an INSERT to retrieve the auto-assigned primary key.
+// Returns 0 if no INSERT has been performed on this connection yet.
+//
+// Example:
+//   sqliteutils.exec_sql(mut db, "INSERT INTO users (name) VALUES ('Alice');")!
+//   id := sqliteutils.last_insert_id(db)
+//   println('New row id: ${id}')
+pub fn last_insert_id(db sqlite.DB) i64 {
+	return db.last_insert_rowid()
+}
+
 // Executes a raw DDL/DML SQL query without expecting row returns.
 // Caller is responsible for ensuring the query string contains no user-supplied data.
 pub fn exec_sql(mut db sqlite.DB, query string) ! {
@@ -427,4 +450,126 @@ pub fn with_transaction(mut db sqlite.DB, work fn () !) ! {
 		return err
 	}
 	db.exec('COMMIT;') or { return err }
+}
+
+// ─── Column Management Helpers ───────────────────────────────────────────────
+
+// sanitize_sql_type validates that a SQL type expression (e.g. "TEXT", "INTEGER NOT NULL",
+// "VARCHAR(255)") contains only safe characters. Prevents injection via type strings.
+fn sanitize_sql_type(sql_type string) !string {
+	if sql_type.len == 0 {
+		return error('SQL type must not be empty')
+	}
+	for ch in sql_type {
+		if !ch.is_letter() && !ch.is_digit() && ch != ` ` && ch != `(` && ch != `)` && ch != `_`
+			&& ch != `-` && ch != `.` && ch != `'` && ch != `"` {
+			return error('SQL type "${sql_type}" contains disallowed character: ${ch.ascii_str()}')
+		}
+	}
+	return sql_type
+}
+
+// ColumnDef describes a column to be added to a table.
+pub struct ColumnDef {
+pub:
+	// name is the column name. Must pass identifier validation.
+	name string
+	// sql_type is the SQLite type expression, e.g. "TEXT", "INTEGER", "REAL",
+	// "INTEGER NOT NULL DEFAULT 0", "VARCHAR(255)".
+	sql_type string
+}
+
+// Adds a single column to an existing table.
+// Requires SQLite 3.1+ (universally available).
+//
+// Example:
+//   add_column(mut db, 'users', ColumnDef{ name: 'email', sql_type: 'TEXT' })!
+pub fn add_column(mut db sqlite.DB, table_name string, col ColumnDef) ! {
+	tbl := sanitize_identifier(table_name)!
+	col_name := sanitize_identifier(col.name)!
+	col_type := sanitize_sql_type(col.sql_type)!
+	db.exec('ALTER TABLE "${tbl}" ADD COLUMN "${col_name}" ${col_type};') or { return err }
+}
+
+// Adds multiple columns to an existing table in a single transaction.
+// Any invalid name or type causes all additions to be rolled back.
+pub fn add_columns(mut db sqlite.DB, table_name string, cols []ColumnDef) ! {
+	tbl := sanitize_identifier(table_name)!
+	db.exec('BEGIN TRANSACTION;') or { return err }
+	for col in cols {
+		col_name := sanitize_identifier(col.name) or {
+			db.exec('ROLLBACK;') or {}
+			return err
+		}
+		col_type := sanitize_sql_type(col.sql_type) or {
+			db.exec('ROLLBACK;') or {}
+			return err
+		}
+		db.exec('ALTER TABLE "${tbl}" ADD COLUMN "${col_name}" ${col_type};') or {
+			db.exec('ROLLBACK;') or {}
+			return err
+		}
+	}
+	db.exec('COMMIT;') or { return err }
+}
+
+// Renames a column in a table.
+// Requires SQLite 3.25.0+ (released 2018-09-15).
+//
+// Example:
+//   rename_column(mut db, 'users', 'fname', 'first_name')!
+pub fn rename_column(mut db sqlite.DB, table_name string, old_col string, new_col string) ! {
+	tbl := sanitize_identifier(table_name)!
+	old := sanitize_identifier(old_col)!
+	new_ := sanitize_identifier(new_col)!
+	db.exec('ALTER TABLE "${tbl}" RENAME COLUMN "${old}" TO "${new_}";') or { return err }
+}
+
+// Drops a single column from a table.
+// Requires SQLite 3.35.0+ (released 2021-03-12).
+//
+// Example:
+//   drop_column(mut db, 'users', 'legacy_field')!
+pub fn drop_column(mut db sqlite.DB, table_name string, col_name string) ! {
+	tbl := sanitize_identifier(table_name)!
+	col := sanitize_identifier(col_name)!
+	db.exec('ALTER TABLE "${tbl}" DROP COLUMN "${col}";') or { return err }
+}
+
+// Drops multiple columns from a table inside a single transaction.
+// Requires SQLite 3.35.0+ (released 2021-03-12).
+// Any failure rolls back all column drops.
+pub fn drop_columns(mut db sqlite.DB, table_name string, col_names []string) ! {
+	tbl := sanitize_identifier(table_name)!
+	db.exec('BEGIN TRANSACTION;') or { return err }
+	for col_name in col_names {
+		col := sanitize_identifier(col_name) or {
+			db.exec('ROLLBACK;') or {}
+			return err
+		}
+		db.exec('ALTER TABLE "${tbl}" DROP COLUMN "${col}";') or {
+			db.exec('ROLLBACK;') or {}
+			return err
+		}
+	}
+	db.exec('COMMIT;') or { return err }
+}
+
+// Returns full schema information for a table as a slice of maps with keys:
+// "cid", "name", "type", "notnull", "dflt_value", "pk".
+// Useful for introspection and schema migrations.
+pub fn get_table_schema(mut db sqlite.DB, table_name string) ![]map[string]string {
+	tbl := sanitize_identifier(table_name)!
+	rows := db.exec('PRAGMA table_info("${tbl}");') or { return err }
+	pragma_cols := ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk']
+	mut result := []map[string]string{}
+	for row in rows {
+		mut m := map[string]string{}
+		for i, val in row.vals {
+			key := if i < pragma_cols.len { pragma_cols[i] } else { i.str() }
+			m[key] = val
+		}
+		result << m
+	}
+	return result
 }
