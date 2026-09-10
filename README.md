@@ -26,6 +26,10 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`flowutils`](#18-flowutils) | Traffic control & resilience: Token Bucket `RateLimiter`, 3-state `CircuitBreaker`, exponential backoff `retry[T]`, and event `Debouncer`. |
 | [`templateutils`](#19-templateutils) | Fast string templating with fallback defaults (`{{key | default}}`), dynamic resolvers, and styled ANSI markdown terminal rendering. |
 | [`colorutils`](#20-colorutils) | HEX/RGB/HSL color conversions, color theory transforms, WCAG 2.1 accessibility & contrast auditing, and 24-bit Truecolor terminal formatting. |
+| [`archiveutils`](#21-archiveutils) | Ergonomic Zip archive creation, extraction, recursive directory compression, and in-memory inspection via V's native `compress.szip`. |
+| [`asyncutils`](#22-asyncutils) | Bounded concurrency primitives: order-preserving `parallel_map[T, R]`, `parallel_filter[T]`, `parallel_each[T]`, `WaitGroup`, and `WorkerPool`. |
+| [`regexutils`](#23-regexutils) | High-level regular expression helpers: `is_match`, `find_first`, `find_all`, `replace`, `split`, and `find_matches`. |
+| [`mockutils`](#24-mockutils) | Synthetic testing & prototyping data generation: `lorem_text`, `lorem_words`, `mock_user`, `mock_email`, `mock_phone`, `mock_ipv4`, `mock_url`. |
 
 ---
 
@@ -382,11 +386,85 @@ is_aa := colorutils.is_accessible(hex_color, white, 'AA')
 println(colorutils.fg_rgb('Truecolor Text', hex_color))
 ```
 
+### 21. `archiveutils`
+```v
+import archiveutils
+
+// Create zip archives
+archiveutils.zip_file('data/report.pdf', 'backup/report.zip')!
+archiveutils.zip_dir('assets/images', 'dist/images.zip')!
+
+// Inspect and read without disk extraction
+entries := archiveutils.list_entries('dist/images.zip')!
+readme_content := archiveutils.read_entry_string('dist/images.zip', 'README.md')!
+
+// Extract archive
+archiveutils.unzip_to_dir('dist/images.zip', 'extracted/')!
+```
+
+### 22. `asyncutils`
+```v
+import asyncutils
+
+// Bounded parallel mapping (preserves index order)
+squares := asyncutils.parallel_map[int, int]([1, 2, 3, 4], 2, fn (n int) int {
+    return n * n
+})
+
+// WaitGroup synchronization
+mut wg := asyncutils.new_waitgroup()
+wg.add(1)
+spawn fn (mut wg asyncutils.WaitGroup) {
+    defer { wg.done() }
+    // background work
+}(mut wg)
+wg.wait()
+
+// Bounded WorkerPool
+mut pool := asyncutils.new_worker_pool(4, 16)!
+defer { pool.stop() }
+pool.submit(fn () { /* job */ })!
+pool.wait_all()
+```
+
+### 23. `regexutils`
+```v
+import regexutils
+
+// High-level pattern matching
+if regexutils.is_match(r'^\d{4}-\d{2}-\d{2}$', '2026-09-10') {
+    println('Valid date format')
+}
+
+// Find first & all matches
+first_num := regexutils.find_first(r'\d+', 'item 42 price 100') // "42"
+all_nums  := regexutils.find_all(r'\d+', 'item 42 price 100')   // ['42', '100']
+
+// Simple replacement
+masked := regexutils.replace(r'\d', 'Pass: 1234', '*') // "Pass: ****"
+```
+
+### 24. `mockutils`
+```v
+import mockutils
+
+// Synthetic user profiles
+user := mockutils.mock_user()
+println('${user.name} <${user.email}> (${user.role})')
+
+// Quick test datasets
+users := mockutils.mock_users(10)
+
+// Fast lorem placeholder text
+paragraph := mockutils.lorem_text(1, 3, 8)
+words := mockutils.lorem_words(6)
+```
+
 ---
 
 ## Running the Demo
 
-To run the complete interactive demo showcasing all 20 modules:
+To run the complete interactive demo showcasing all 24 modules:
 
 ```bash
 v run main.v
@@ -402,4 +480,5 @@ v test .
 
 ## API Documentation
 
-For the complete API reference with comprehensive, runnable examples for all 496 public functions and structs, see [API.md](API.md).
+For the complete API reference with comprehensive, runnable examples for all 540 public functions and structs, see [API.md](API.md).
+

@@ -21,6 +21,10 @@ import semverutils
 import flowutils
 import templateutils
 import colorutils
+import archiveutils
+import asyncutils
+import regexutils
+import mockutils
 import time
 
 struct Person {
@@ -38,7 +42,7 @@ pub mut:
 
 fn main() {
 	println(cliutils.bold(cliutils.cyan('==================================================')))
-	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 20-Module Showcase      ')))
+	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 24-Module Showcase      ')))
 	println(cliutils.bold(cliutils.cyan('==================================================')))
 
 	// 1. FILEUTILS DEMO
@@ -347,9 +351,63 @@ fn main() {
 	accessible := colorutils.is_accessible(c_hex, white, 'AA')
 	println(' - Contrast vs White: ${contrast:.2f}:1 (WCAG AA Normal: ${accessible})')
 
-	styled_terminal := colorutils.bg_rgb(colorutils.fg_rgb('  V-LANG UTILS 20-MODULES COMPLETE  ', white), c_hex)
+	styled_terminal := colorutils.bg_rgb(colorutils.fg_rgb('  V-LANG UTILS COMPLETE  ', white), c_hex)
 	println(' - Truecolor Styled Output:\n${styled_terminal}')
 
-	println('\n' + cliutils.bold(cliutils.green('✔ All 20 modules in vlang_utils demonstrated successfully!')))
+	// 21. ARCHIVEUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('21. [archiveutils] Zip Archiving & In-Memory Inspection:')))
+	arch_demo_dir := '.archive_demo'
+	os.mkdir_all(arch_demo_dir) or { panic(err) }
+	defer { os.rmdir_all(arch_demo_dir) or {} }
+	demo_file := '${arch_demo_dir}/data.txt'
+	os.write_file(demo_file, 'Archived content for V demo') or { panic(err) }
+	demo_zip := '${arch_demo_dir}/bundle.zip'
+	archiveutils.zip_file(demo_file, demo_zip) or { panic(err) }
+	entries := archiveutils.list_entries(demo_zip) or { [] }
+	println(' - Created ZIP: ${archiveutils.is_valid_zip(demo_zip)}, entries=${entries.len}, name="${entries[0].name}"')
+	extracted_text := archiveutils.read_entry_string(demo_zip, 'data.txt') or { '' }
+	println(' - In-memory read from ZIP: "${extracted_text}"')
+
+	// 22. ASYNCUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('22. [asyncutils] Bounded Parallelism & Worker Pools:')))
+	nums := [1, 2, 3, 4, 5, 6, 7, 8]
+	mapped := asyncutils.parallel_map[int, int](nums, 4, fn (n int) int {
+		return n * 10
+	})
+	println(' - Parallel Map (4 workers): ${mapped}')
+	async_evens := asyncutils.parallel_filter[int](nums, 2, fn (n int) bool {
+		return n % 2 == 0
+	})
+	println(' - Parallel Filter (2 workers): ${async_evens}')
+
+	mut pool := asyncutils.new_worker_pool(2, 5) or { panic(err) }
+	pool.submit(fn () {
+		// Background task executed in pool
+	}) or {}
+	pool.wait_all()
+	pool.stop()
+	println(' - WorkerPool (2 threads): dispatched and synchronized successfully')
+
+	// 23. REGEXUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('23. [regexutils] High-Level Regex Abstractions:')))
+	pattern := r'\d+'
+	sample_text := 'User 101 ordered 5 items on 2026-09-10'
+	first_num := regexutils.find_first(pattern, sample_text) or { 'none' }
+	all_nums := regexutils.find_all(pattern, sample_text)
+	masked_nums := regexutils.replace(pattern, sample_text, '#')
+	println(' - First Match: ${first_num}')
+	println(' - All Matches: ${all_nums}')
+	println(' - Replaced: "${masked_nums}"')
+
+	// 24. MOCKUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('24. [mockutils] Synthetic Data & Lorem Generation:')))
+	fake_user := mockutils.mock_user()
+	println(' - Mock Profile: ${fake_user.name} (${fake_user.role}) <${fake_user.email}>')
+	println(' - Mock Network: Phone=${fake_user.phone}, IP=${fake_user.ip}')
+	lorem_sample := mockutils.lorem_sentence()
+	println(' - Synthetic Lorem: "${lorem_sample}"')
+
+	println('\n' + cliutils.bold(cliutils.green('✔ All 24 modules in vlang_utils demonstrated successfully!')))
 }
+
 

@@ -3792,3 +3792,442 @@ badge := colorutils.bg_rgb(colorutils.fg_rgb(' SUCCESS ', white), colorutils.RGB
 println(badge)
 ```
 
+---
+
+# archiveutils API
+
+Import statement:
+```v
+import archiveutils
+```
+
+Ergonomic Zip archive creation, extraction, recursive directory bundling, and in-memory file inspection built directly on V's native `compress.szip` engine.
+
+## Data Structures
+
+### `ZipEntry`
+
+Represents an individual file or directory entry inside a zip archive:
+- `name`: string
+- `size`: u64
+- `is_dir`: bool
+- `crc32`: u32
+
+---
+
+## Functions
+
+### `is_valid_zip(path string) bool`
+
+Tests whether a file exists and starts with standard ZIP magic bytes (`PK\x03\x04` or `PK\x05\x06`).
+
+```v
+import archiveutils
+
+if archiveutils.is_valid_zip('data/backup.zip') {
+    println('Valid zip archive confirmed!')
+}
+```
+
+---
+
+### `zip_file(source_file string, dest_zip string) !` & `zip_files(source_files []string, dest_zip string) !`
+
+Compresses one or more files into a single zip archive. Automatically creates any missing destination directories.
+
+```v
+import archiveutils
+
+// Compress a single file
+archiveutils.zip_file('logs/app.log', 'backups/log.zip')!
+
+// Compress multiple files
+archiveutils.zip_files(['src/main.v', 'v.mod', 'README.md'], 'dist/source.zip')!
+```
+
+---
+
+### `zip_dir(source_dir string, dest_zip string) !`
+
+Recursively bundles an entire directory tree into a zip archive with relative path preserves.
+
+```v
+import archiveutils
+
+archiveutils.zip_dir('assets/images', 'dist/images_bundle.zip')!
+```
+
+---
+
+### `unzip_to_dir(zip_file string, dest_dir string) !`
+
+Extracts all entries from a zip archive into a destination directory.
+
+```v
+import archiveutils
+
+archiveutils.unzip_to_dir('dist/images_bundle.zip', 'extracted/images')!
+```
+
+---
+
+### `list_entries(zip_file string) ![]ZipEntry`
+
+Inspects the internal contents of a zip archive without extracting files to disk.
+
+```v
+import archiveutils
+
+entries := archiveutils.list_entries('dist/source.zip')!
+println('Found ${entries.len} entries:')
+for entry in entries {
+    type_str := if entry.is_dir { 'DIR ' } else { 'FILE' }
+    println('- [${type_str}] ${entry.name} (${entry.size} bytes)')
+}
+```
+
+---
+
+### `read_entry_bytes(zip_file string, entry_name string) ![]u8` & `read_entry_string(zip_file string, entry_name string) !string`
+
+Reads a specific file from inside a zip archive directly into memory as bytes or a string without extracting to disk.
+
+```v
+import archiveutils
+
+// Read file directly from zip into memory
+text := archiveutils.read_entry_string('dist/source.zip', 'README.md')!
+println('Readme preview:\n${text[..100]}...')
+```
+
+---
+
+# asyncutils API
+
+Import statement:
+```v
+import asyncutils
+import time
+```
+
+High-throughput, deterministic concurrency abstractions: order-preserving parallel collections (`parallel_map`, `parallel_filter`, `parallel_each`), `WaitGroup` synchronization, and bounded `WorkerPool`.
+
+## 1. Parallel Collections
+
+### `parallel_map[T, R](items []T, worker_count int, mapper fn (T) R) []R`
+
+Concurrently transforms a slice of items using up to `worker_count` background threads, guaranteeing that output results retain the exact index order of the inputs.
+
+```v
+import asyncutils
+
+numbers := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+// Process with 4 parallel worker threads
+squares := asyncutils.parallel_map[int, int](numbers, 4, fn (n int) int {
+    return n * n
+})
+
+println(squares) // [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+```
+
+---
+
+### `parallel_filter[T](items []T, worker_count int, predicate fn (T) bool) []T`
+
+Concurrently evaluates a predicate on each element, preserving the original array order of matching elements.
+
+```v
+import asyncutils
+
+words := ['apple', 'cat', 'banana', 'dog', 'elephant', 'fox']
+
+long_words := asyncutils.parallel_filter[string](words, 3, fn (w string) bool {
+    return w.len > 3
+})
+
+println(long_words) // ['apple', 'banana', 'elephant']
+```
+
+---
+
+### `parallel_each[T](items []T, worker_count int, action fn (T))`
+
+Executes a side-effecting action concurrently across items across up to `worker_count` threads.
+
+```v
+import asyncutils
+
+urls := ['https://api1.local', 'https://api2.local', 'https://api3.local']
+
+asyncutils.parallel_each[string](urls, 3, fn (url string) {
+    println('Polling endpoint: ${url}')
+})
+```
+
+---
+
+## 2. WaitGroup Synchronization
+
+### `WaitGroup`
+
+Lightweight thread synchronization barrier.
+
+### `new_waitgroup() &WaitGroup`
+
+Creates and heap-allocates a new `WaitGroup`.
+
+```v
+import asyncutils
+import time
+
+mut wg := asyncutils.new_waitgroup()
+
+for i in 0 .. 3 {
+    wg.add(1)
+    spawn fn (mut wg asyncutils.WaitGroup, id int) {
+        defer { wg.done() }
+        time.sleep(50 * time.millisecond)
+        println('Worker ${id} finished')
+    }(mut wg, i + 1)
+}
+
+// Block until all 3 workers call wg.done()
+wg.wait()
+println('All tasks completed!')
+```
+
+---
+
+## 3. Worker Pool
+
+### `WorkerPool`
+
+Dispatches arbitrary tasks across a fixed number of worker threads via a bounded channel.
+
+### `new_worker_pool(worker_count int, queue_size int) !&WorkerPool`
+
+Initializes a pool with `worker_count` worker threads and a bounded task queue.
+
+```v
+import asyncutils
+import time
+
+mut pool := asyncutils.new_worker_pool(4, 32)!
+defer { pool.stop() }
+
+// Submit jobs to the pool
+for i in 0 .. 10 {
+    pool.submit(fn [i] () {
+        println('Processing job #${i}')
+        time.sleep(10 * time.millisecond)
+    })!
+}
+
+// Wait for all queued tasks to finish
+pool.wait_all()
+```
+
+---
+
+# regexutils API
+
+Import statement:
+```v
+import regexutils
+```
+
+Ergonomic, high-level regular expression helpers eliminating boilerplate around regex queries, group indexes, and match boundaries.
+
+## Data Structures
+
+### `Match`
+
+Represents a matched substring and its span:
+- `text`: string
+- `start`: int
+- `end`: int
+
+---
+
+## Functions
+
+### `is_match(pattern string, text string) bool`
+
+Returns true if the entire string strictly matches the regular expression.
+
+```v
+import regexutils
+
+println(regexutils.is_match(r'^\d+$', '12345')) // true
+println(regexutils.is_match(r'^\d+$', '123a5')) // false
+```
+
+---
+
+### `contains_match(pattern string, text string) bool`
+
+Returns true if the regular expression pattern matches any substring within text.
+
+```v
+import regexutils
+
+println(regexutils.contains_match(r'\d+', 'Order ID: 48291')) // true
+```
+
+---
+
+### `find_first(pattern string, text string) ?string`
+
+Returns the first matching substring, or `none` if no match exists.
+
+```v
+import regexutils
+
+match_str := regexutils.find_first(r'\d+', 'Total: 450 items') or { 'none' }
+println(match_str) // "450"
+```
+
+---
+
+### `find_all(pattern string, text string) []string`
+
+Returns an array of all matching substrings.
+
+```v
+import regexutils
+
+numbers := regexutils.find_all(r'\d+', 'Call 800-555-0199 or 415-555-0122')
+println(numbers) // ['800', '555', '0199', '415', '555', '0122']
+```
+
+---
+
+### `find_matches(pattern string, text string) []Match`
+
+Returns all matches including their starting and ending byte offsets.
+
+```v
+import regexutils
+
+matches := regexutils.find_matches(r'[A-Z][a-z]+', 'Alice and Bob went to Paris')
+for m in matches {
+    println('Found "${m.text}" at indices [${m.start}..${m.end}]')
+}
+```
+
+---
+
+### `replace(pattern string, text string, repl string) string` & `replace_n(pattern string, text string, repl string, count int) string`
+
+Substitutes matched substrings with replacement text.
+
+```v
+import regexutils
+
+// Replace all digits
+masked := regexutils.replace(r'\d', 'Pin: 1234', '*')
+println(masked) // "Pin: ****"
+
+// Replace up to 2 occurrences
+partial := regexutils.replace_n(r'\d+', '10 20 30 40', 'X', 2)
+println(partial) // "X X 30 40"
+```
+
+---
+
+### `split(pattern string, text string) []string`
+
+Splits a string by occurrences of a regular expression pattern.
+
+```v
+import regexutils
+
+parts := regexutils.split(r'\s*,\s*', 'apple, banana , cherry,date')
+println(parts) // ['apple', 'banana', 'cherry', 'date']
+```
+
+---
+
+# mockutils API
+
+Import statement:
+```v
+import mockutils
+```
+
+Rapid prototyping, testing, and mock data generation wrapping V's native `strings.lorem` and pseudo-random generators.
+
+## Data Structures
+
+### `MockUser`
+
+Represents a synthetic user profile:
+- `id`: int
+- `name`: string
+- `email`: string
+- `phone`: string
+- `ip`: string
+- `role`: string
+
+---
+
+## Functions
+
+### `lorem_text(paragraphs int, sentences int, words int) string`
+
+Generates structured multi-paragraph pseudo-random placeholder text.
+
+```v
+import mockutils
+
+text := mockutils.lorem_text(2, 3, 6)
+println(text)
+```
+
+---
+
+### `lorem_words(count int) string` & `lorem_sentence() string`
+
+Generates a specific number of lorem words or a single coherent sentence.
+
+```v
+import mockutils
+
+words := mockutils.lorem_words(5)
+println(words)
+
+sentence := mockutils.lorem_sentence()
+println(sentence)
+```
+
+---
+
+### Synthetic Data Generators
+
+- `mock_first_name() string`: Returns a realistic first name.
+- `mock_last_name() string`: Returns a realistic last name.
+- `mock_full_name() string`: Returns a combined full name.
+- `mock_email() string`: Generates a valid formatted email address.
+- `mock_phone() string`: Generates an E.164-style telephone number (`+1-XXX-555-XXXX`).
+- `mock_ipv4() string`: Generates a valid IPv4 address.
+- `mock_url() string`: Generates a synthetic HTTP/HTTPS URL.
+- `mock_user() MockUser`: Returns a populated `MockUser` profile struct.
+- `mock_users(count int) []MockUser`: Returns a slice of `count` synthetic user profiles.
+
+```v
+import mockutils
+
+// Generate mock user profile
+user := mockutils.mock_user()
+println('User: ${user.name} (${user.role})')
+println('Email: ${user.email}, Phone: ${user.phone}, IP: ${user.ip}')
+
+// Seed a list of 5 test users
+test_users := mockutils.mock_users(5)
+for u in test_users {
+    println('#${u.id}: ${u.name} <${u.email}>')
+}
+```
+
+
