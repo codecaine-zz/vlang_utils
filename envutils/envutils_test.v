@@ -82,3 +82,65 @@ fn test_set_unset() {
 	assert is_set('TEST_CUSTOM_KEY') == false
 	assert get_str('TEST_CUSTOM_KEY', 'fallback') == 'fallback'
 }
+
+fn test_advanced_features() {
+	// get_opt
+	unset('OPT_VAR')
+	assert get_opt('OPT_VAR') == none
+	set('OPT_VAR', 'found_it')
+	if val := get_opt('OPT_VAR') {
+		assert val == 'found_it'
+	} else {
+		assert false
+	}
+
+	// get_i64
+	set('LARGE_NUM', '9223372036854775800')
+	assert get_i64('LARGE_NUM', 0) == 9223372036854775800
+	assert get_i64('NON_EXISTENT_I64', 500) == 500
+	set('BAD_I64', 'invalid')
+	assert get_i64('BAD_I64', 99) == 99
+
+	// get_list
+	set('CORS_ORIGINS', 'https://foo.com, https://bar.com , http://localhost:3000')
+	origins := get_list('CORS_ORIGINS', ',', [])
+	assert origins.len == 3
+	assert origins[0] == 'https://foo.com'
+	assert origins[1] == 'https://bar.com'
+	assert origins[2] == 'http://localhost:3000'
+
+	set('TAGS_PIPE', 'admin|user|guest')
+	pipe_tags := get_list('TAGS_PIPE', '|', [])
+	assert pipe_tags == ['admin', 'user', 'guest']
+
+	fallback_list := get_list('UNSET_LIST', ',', ['default_val'])
+	assert fallback_list == ['default_val']
+
+	// set_default
+	unset('DEFAULT_CHECK')
+	set_default('DEFAULT_CHECK', 'initial')
+	assert get_str('DEFAULT_CHECK', '') == 'initial'
+	set_default('DEFAULT_CHECK', 'overwritten')
+	assert get_str('DEFAULT_CHECK', '') == 'initial'
+
+	// all
+	set('ALL_CHECK_KEY', 'all_check_value')
+	env_all := all()
+	assert 'ALL_CHECK_KEY' in env_all
+	assert env_all['ALL_CHECK_KEY'] == 'all_check_value'
+
+	// save_dotenv and round-trip
+	tmp_path := os.join_path(os.temp_dir(), 'test_vlang_utils.env')
+	save_dotenv(tmp_path, {
+		'SERVER_HOST': '0.0.0.0'
+		'SERVER_PORT': '8080'
+		'APP_SECRET':  'secret #value with spaces'
+	}) or {
+		assert false
+	}
+	loaded := parse_dotenv_content(os.read_file(tmp_path) or { '' })
+	assert loaded['SERVER_HOST'] == '0.0.0.0'
+	assert loaded['SERVER_PORT'] == '8080'
+	assert loaded['APP_SECRET'] == 'secret #value with spaces'
+	os.rm(tmp_path) or {}
+}

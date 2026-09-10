@@ -70,7 +70,12 @@ Examples that contact a website, read a file, use the clipboard, or ask a questi
 #### 3. System Telemetry, OS & CLI
 
 - **[`cliutils`](#cliutils-api)** — ANSI terminal colors, FlagParser, interactive prompts, progress bars, tables
-- **[`envutils`](#envutils-api)** — Type-safe environment variable access, programmatic setters/unsetting, .env file loader, variable expansion
+- **[`envutils`](#envutils-api)** — Type-safe environment variable access, setters, inspection, .env persistence, variable expansion
+  - [Programmatic Setters](#envutils-setters)
+  - [State & Inspection](#envutils-inspection)
+  - [Typed Getters](#envutils-getters)
+  - [Dotenv (.env) Persistence](#envutils-dotenv)
+  - [String Interpolation](#envutils-expansion)
 - **[`logutils`](#logutils-api)** — Leveled structured logging (.debug, .info, .warn, .error, .fatal)
 - **[`sysutils`](#sysutils-api)** — CPU/RAM/disk telemetry, system uptime, safe command execution, clipboard
 
@@ -1977,13 +1982,21 @@ max_f := sliceutils.max_f64(floats) or { 0.0 } // 8.2
 
 # envutils API
 
-**Plain-language purpose:** Use these tools to read and set app settings that live in the process environment, such as a port number, a feature switch, or a secret key. The examples show typed getters with safe defaults, programmatic setters, and .env file loading.
+**Plain-language purpose:** Use these tools to read and set app settings that live in the process environment, such as a port number, a feature switch, or a secret key. The examples show typed getters with safe defaults, programmatic setters, inspection, .env persistence, and string interpolation.
 
 Import statement:
 
 ```v
 import envutils
 ```
+
+[▲ Back to Table of Contents](#table-of-contents)
+
+---
+
+<a id="envutils-setters"></a>
+
+## Programmatic Setters
 
 ### `set(key string, val string)`
 
@@ -2025,6 +2038,17 @@ envutils.set_f64('RATE_LIMIT_RATIO', 1.25)
 
 ---
 
+### `set_default(key string, val string)`
+
+Sets an environment variable **only if it is currently unset or empty**. If the variable already has a value, it remains untouched.
+
+```v
+// Preserves runtime environment overrides if already defined
+envutils.set_default('HOST', '127.0.0.1')
+```
+
+---
+
 ### `set_map(vars map[string]string)`
 
 Sets multiple environment variables at once from a key-value map.
@@ -2032,22 +2056,18 @@ Sets multiple environment variables at once from a key-value map.
 ```v
 envutils.set_map({
     'SERVICE_NAME': 'payments',
-    'REGION': 'us-east-1',
-    'ENV': 'staging'
+    'REGION':       'us-east-1',
+    'ENV':          'staging'
 })
 ```
 
----
-
-### `unset(key string)`
-
-Removes an environment variable from the OS environment.
-
-```v
-envutils.unset('TEMP_TOKEN')
-```
+[▲ Back to Table of Contents](#table-of-contents)
 
 ---
+
+<a id="envutils-inspection"></a>
+
+## State & Inspection
 
 ### `is_set(key string) bool` & `has(key string) bool`
 
@@ -2064,6 +2084,36 @@ if envutils.has('REDIS_URL') {
 
 ---
 
+### `unset(key string)`
+
+Removes an environment variable from the OS environment.
+
+```v
+envutils.unset('TEMP_TOKEN')
+```
+
+---
+
+### `all() map[string]string`
+
+Returns a map snapshot of all environment variables currently active in the process.
+
+```v
+current_env := envutils.all()
+println('Total environment variables: ${current_env.len}')
+for k, v in current_env {
+    println('${k}=${v}')
+}
+```
+
+[▲ Back to Table of Contents](#table-of-contents)
+
+---
+
+<a id="envutils-getters"></a>
+
+## Typed Getters
+
 ### `get_str(key string, default_val string) string`
 
 Gets environment variable string, or fallback if unset/empty.
@@ -2076,10 +2126,20 @@ host := envutils.get_str('APP_HOST', 'localhost')
 
 ### `get_int(key string, default_val int) int`
 
-Gets environment variable parsed as integer, or fallback.
+Gets environment variable parsed as integer, or fallback if unset or invalid.
 
 ```v
 port := envutils.get_int('PORT', 8080)
+```
+
+---
+
+### `get_i64(key string, default_val i64) i64`
+
+Gets environment variable parsed as a 64-bit integer, or fallback if unset or invalid. Ideal for timestamps and large byte limits.
+
+```v
+max_bytes := envutils.get_i64('MAX_UPLOAD_BYTES', 10737418240)
 ```
 
 ---
@@ -2104,6 +2164,20 @@ scale := envutils.get_f64('SCALE_FACTOR', 1.0)
 
 ---
 
+### `get_opt(key string) ?string`
+
+Returns an Option `?string` with the variable value if set and non-empty, or `none`. Allows idiomatic V `if val := envutils.get_opt(...)` checks without throwing errors.
+
+```v
+if token := envutils.get_opt('GITHUB_TOKEN') {
+    println('Found API token: ${token}')
+} else {
+    println('Running in anonymous mode')
+}
+```
+
+---
+
 ### `get_required(key string) !string`
 
 Returns the environment variable value or errors if missing/empty.
@@ -2113,6 +2187,26 @@ secret := envutils.get_required('JWT_SECRET')!
 ```
 
 ---
+
+### `get_list(key string, delimiter string, default_val []string) []string`
+
+Splits an environment variable by delimiter into trimmed, non-empty tokens. Falls back to `default_val` if unset, empty, or whitespace.
+
+```v
+// Splits comma-delimited origins and trims whitespace
+origins := envutils.get_list('ALLOWED_ORIGINS', ',', ['http://localhost:3000'])
+for origin in origins {
+    println('Allowed: ${origin}')
+}
+```
+
+[▲ Back to Table of Contents](#table-of-contents)
+
+---
+
+<a id="envutils-dotenv"></a>
+
+## Dotenv (.env) Persistence
 
 ### `load_dotenv(path string) !map[string]string`
 
@@ -2141,6 +2235,20 @@ if env_vars.len > 0 {
 
 ---
 
+### `save_dotenv(path string, vars map[string]string) !`
+
+Writes or overwrites a `.env` file with the provided key-value map. Keys are written in sorted order, and values containing spaces, newlines, hashes, or quotes are automatically quoted and escaped.
+
+```v
+envutils.save_dotenv('.env', {
+    'APP_ENV':     'production',
+    'PORT':        '8080',
+    'DATABASE_URL': 'postgres://user:pass@localhost:5432/app'
+})!
+```
+
+---
+
 ### `parse_dotenv_content(content string) map[string]string`
 
 Parses raw `.env` formatted content string without touching the OS environment.
@@ -2151,7 +2259,13 @@ assert env_map['PORT'] == '8080'
 assert env_map['DB_PASS'] == 'secret #1'
 ```
 
+[▲ Back to Table of Contents](#table-of-contents)
+
 ---
+
+<a id="envutils-expansion"></a>
+
+## String Interpolation
 
 ### `expand_env(input string) string`
 

@@ -132,9 +132,11 @@ fn main() {
 	println('\n' + cliutils.bold(cliutils.yellow('5. [envutils] Environment & Configuration:')))
 	envutils.set_int('APP_PORT', 8080)
 	envutils.set_bool('APP_DEBUG', true)
+	envutils.set('APP_HOSTS', 'localhost, 127.0.0.1, api.internal')
 	port := envutils.get_int('APP_PORT', 3000)
 	debug := envutils.get_bool('APP_DEBUG', false)
-	println(' - Typed Env: Port=${port}, Debug=${debug}')
+	hosts := envutils.get_list('APP_HOSTS', ',', [])
+	println(' - Typed Env: Port=${port}, Debug=${debug}, Hosts=${hosts}')
 	expanded := envutils.expand_env('Server running on port \$APP_PORT with debug=\$APP_DEBUG')
 	println(' - Expanded Env string: ${expanded}')
 

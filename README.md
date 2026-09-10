@@ -120,17 +120,20 @@ avg := sliceutils.average_int(nums)                     // 3.0
 ```v
 import envutils
 
-// Type-safe getters with defaults
+// Type-safe getters with defaults, optional handling & lists
 port := envutils.get_int('PORT', 8080)
-is_debug := envutils.get_bool('DEBUG', false)
-db_url := envutils.get_required('DATABASE_URL')!
+origins := envutils.get_list('ALLOWED_ORIGINS', ',', ['*'])
+if token := envutils.get_opt('GITHUB_TOKEN') {
+    println('Found token: ${token}')
+}
 
-// Set & unset variables programmatically
-envutils.set('APP_ENV', 'production')
+// Set, set_default & unset programmatically
+envutils.set_default('APP_ENV', 'production')
 envutils.set_int('PORT', 3000)
 envutils.unset('TEMP_FLAG')
 
-// Expand variables in strings
+// Dotenv file persistence & string expansion
+envutils.save_dotenv('.env', { 'APP_ENV': 'production', 'PORT': '3000' })!
 path := envutils.expand_env('/var/${APP_ENV}/logs')
 ```
 

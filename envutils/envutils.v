@@ -146,6 +146,77 @@ pub fn load_dotenv(path string) !map[string]string {
 	return parsed
 }
 
+// set_default sets an environment variable only if it is currently unset or empty.
+pub fn set_default(key string, val string) {
+	if !is_set(key) {
+		set(key, val)
+	}
+}
+
+// all returns a copy of all current environment variables as a map.
+pub fn all() map[string]string {
+	return os.environ()
+}
+
+// get_opt returns an option ?string: the variable value if set and non-empty, or none.
+pub fn get_opt(key string) ?string {
+	val := os.getenv(key)
+	if val.len == 0 {
+		return none
+	}
+	return val
+}
+
+// get_i64 returns the 64-bit integer value of key, or default_val if unset or invalid.
+pub fn get_i64(key string, default_val i64) i64 {
+	val := os.getenv(key)
+	if val.len == 0 {
+		return default_val
+	}
+	n := val.i64()
+	return if n == 0 && val != '0' { default_val } else { n }
+}
+
+// get_list returns the environment variable split by delimiter into trimmed non-empty tokens,
+// or default_val if unset, empty, or containing only whitespace.
+pub fn get_list(key string, delimiter string, default_val []string) []string {
+	val := os.getenv(key).trim_space()
+	if val.len == 0 {
+		return default_val
+	}
+	delim := if delimiter.len == 0 { ',' } else { delimiter }
+	raw_parts := val.split(delim)
+	mut res := []string{cap: raw_parts.len}
+	for part in raw_parts {
+		trimmed := part.trim_space()
+		if trimmed.len > 0 {
+			res << trimmed
+		}
+	}
+	if res.len == 0 {
+		return default_val
+	}
+	return res
+}
+
+// save_dotenv writes or overwrites a .env file with the provided key-value pairs.
+// Keys are written in sorted order, and values containing spaces, hashes, or quotes are quoted.
+pub fn save_dotenv(path string, vars map[string]string) ! {
+	mut sb := strings.new_builder(vars.len * 32)
+	mut keys := vars.keys()
+	keys.sort()
+	for key in keys {
+		val := vars[key]
+		if val.contains('\n') || val.contains('"') || val.contains(' ') || val.contains('#') {
+			escaped := val.replace('\\', '\\\\').replace('"', '\\"')
+			sb.writeln('${key}="${escaped}"')
+		} else {
+			sb.writeln('${key}=${val}')
+		}
+	}
+	os.write_file(path, sb.str()) or { return error('failed to save dotenv file: ${err}') }
+}
+
 // load_dotenv_auto searches for a .env file starting in the current directory and traversing parent directories.
 pub fn load_dotenv_auto() !map[string]string {
 	mut dir := os.getwd()
