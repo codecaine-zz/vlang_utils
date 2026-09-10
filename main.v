@@ -81,6 +81,12 @@ fn main() {
 	loaded_alice := sqliteutils.load_struct[Person](mut db, 'users_store', 'user_alice') or { panic(err) }
 	println(' - Document loaded from SQLite store: ${loaded_alice.name} (${loaded_alice.age})')
 
+	// Parameterized CRUD & Injection Defense
+	sqliteutils.exec_sql(mut db, 'CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT);') or { panic(err) }
+	acct_id := sqliteutils.insert_row(mut db, 'accounts', { 'name': "Alice' OR 1=1; --" }) or { panic(err) }
+	accts := sqliteutils.select_rows(mut db, 'accounts', ['id', 'name'], 'id = ?', ['${acct_id}']) or { panic(err) }
+	println(' - Safe Parameterized Insert & Select: id=${accts[0]["id"]}, name="${accts[0]["name"]}"')
+
 	// 3. STRUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('3. [strutils] String Manipulation & Formatting:')))
 	raw_text := 'vLang_Utilities: The Ultimate ToolKit'
@@ -226,14 +232,22 @@ fn main() {
 	println(' - MinHeap Root: ${heap.pop() or { -1 }}')
 
 	// 14. STATUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('14. [statutils] Statistical Analysis & Aggregations:')))
+	println('\n' + cliutils.bold(cliutils.yellow('14. [statutils] Comprehensive Statistical Analysis & Regression:')))
 	dataset := [12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 30.0, 45.0, 45.0, 50.0]
-	mean := statutils.stats_mean(dataset)
-	median := statutils.stats_median(dataset)
-	std_dev := statutils.stats_std_dev(dataset)
-	p95 := statutils.stats_percentile(dataset, 95.0)
+	summary := statutils.stats_summary(dataset)
 	println(' - Dataset: ${dataset}')
-	println(' - Mean: ${mean:.2f} | Median: ${median:.2f} | Std Dev: ${std_dev:.2f} | 95th Percentile: ${p95:.2f}')
+	println(' - Summary: Mean=${summary.mean:.2f} | Median=${summary.median:.2f} | Sample StdDev=${summary.sample_std_dev:.2f} | IQR=${summary.iqr:.2f} | Skew=${summary.skewness:.2f}')
+	
+	// Bivariate Analysis
+	x_vals := [1.0, 2.0, 3.0, 4.0, 5.0]
+	y_vals := [2.1, 3.9, 6.2, 8.0, 9.9]
+	lr := statutils.stats_linear_regression(x_vals, y_vals) or { statutils.LinearRegressionResult{} }
+	println(' - OLS Regression (x->y): slope=${lr.slope:.2f}, intercept=${lr.intercept:.2f}, R²=${lr.r_squared:.4f}')
+
+	// Moving Average & Outliers
+	ma := statutils.stats_moving_average(dataset, 3) or { []f64{} }
+	println(' - 3-Point Moving Average: ${ma}')
+
 
 	// 15. STATEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('15. [stateutils] OS-Recommended App State Saving:')))

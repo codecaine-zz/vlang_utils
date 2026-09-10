@@ -7,7 +7,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | Module | Description |
 | :--- | :--- |
 | [`fileutils`](#1-fileutils) | JSON serialization, text operations, CSV parsing, copy/move, recursive listing, human-readable file sizes. |
-| [`sqliteutils`](#2-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, safe parameterized queries, DDL migrations. |
+| [`sqliteutils`](#2-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, secure PRAGMAs, DDL migrations. |
 | [`strutils`](#3-strutils) | Case conversions (snake, kebab, camel, pascal, title), slugify, masking, padding, Levenshtein distance, word wrap. |
 | [`sliceutils`](#4-sliceutils) | Generic collection operations: unique, chunk, flatten, partition, intersection, difference, shuffle, sampling, stats. |
 | [`envutils`](#5-envutils) | Type-safe environment variable retrieval (`get_str`, `get_int`, `get_bool`), `.env` file loader, variable expansion. |
@@ -19,7 +19,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`netutils`](#11-netutils) | Network discovery (local/public IP, MAC, Wi-Fi SSID, DNS servers, gateway, listening ports), connectivity check & TCP ping. |
 | [`validutils`](#12-validutils) | High-speed validation for email, URL, IPv4/IPv6, phone numbers, alphanumeric strings, numeric ranges, UUID, JSON. |
 | [`structutils`](#13-structutils) | Generic RAD data structures: `SimpleStack[T]`, `SimpleQueue[T]`, circular `SimpleRingBuffer[T]`, and `SimpleMinHeap`. |
-| [`statutils`](#14-statutils) | Statistical analysis: mean, median, mode, variance, standard deviation, geometric/harmonic mean, RMS, percentiles, min/max. |
+| [`statutils`](#14-statutils) | Statistical analysis, regression & modeling: mean, median, mode, sample/pop variance & std dev, SEM, quartiles, IQR, skewness, kurtosis, covariance, Pearson/Spearman correlation, OLS linear regression, normal PDF/CDF, Z-scores, outlier detection, moving averages, and summary profiles. |
 | [`stateutils`](#15-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with atomic writes, auto-save, and rollback. |
 
 ---
@@ -68,6 +68,11 @@ theme := sqliteutils.get_kv_or(mut db, 'settings', 'theme', 'light')
 sqliteutils.create_json_store(mut db, 'users')!
 sqliteutils.save_struct(mut db, 'users', 'user_1', Person{ name: 'Alice', age: 30 })!
 user := sqliteutils.load_struct[Person](mut db, 'users', 'user_1')!
+
+// Injection-Free Parameterized CRUD
+sqliteutils.exec_sql(mut db, 'CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY, name TEXT);')!
+new_id := sqliteutils.insert_row(mut db, 'accounts', { 'name': 'Alice' })!
+rows := sqliteutils.select_rows(mut db, 'accounts', ['name'], 'name = ?', ['Alice'])!
 ```
 
 ### 3. `strutils`
@@ -240,10 +245,20 @@ min_item := heap.pop() // 5.0
 import statutils
 
 data := [10.0, 20.0, 30.0, 40.0, 50.0]
-mean := statutils.stats_mean(data)       // 30.0
-median := statutils.stats_median(data)   // 30.0
-std_dev := statutils.stats_std_dev(data) // 14.14
-p90 := statutils.stats_percentile(data, 90.0)
+
+// 17-field descriptive statistical summary
+summary := statutils.stats_summary(data)
+// Mean: 30.0, Median: 30.0, Sample StdDev: 15.81, IQR: 20.0, Skew: 0.0
+
+// OLS Linear Regression
+x := [1.0, 2.0, 3.0, 4.0, 5.0]
+y := [2.0, 4.1, 6.0, 7.9, 10.1]
+reg := statutils.stats_linear_regression(x, y)!
+// Slope: 2.01, Intercept: 0.01, R²: 0.9997
+
+// Moving Average & Outliers
+ma := statutils.stats_moving_average(data, 3)! // [20.0, 30.0, 40.0]
+outliers := statutils.stats_outliers_iqr([10.0, 11.0, 12.0, 100.0], 1.5) // [100.0]
 ```
 
 ### 15. `stateutils`

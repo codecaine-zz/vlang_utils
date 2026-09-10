@@ -1,8 +1,8 @@
 module stateutils
 
-import json
 import os
 import time
+import json2
 
 // ============================================================================
 // OS Recommended State Path Resolution
@@ -89,7 +89,7 @@ fn atomic_write(target_path string, content string) ! {
 // save_app_state serializes and saves a struct to the OS recommended app data directory.
 pub fn save_app_state[T](app_name string, filename string, state T) ! {
 	full_path := get_state_path(app_name, filename, .data)
-	encoded := json.encode(state)
+	encoded := json2.encode(state)
 	atomic_write(full_path, encoded)!
 }
 
@@ -100,7 +100,7 @@ pub fn load_app_state[T](app_name string, filename string) !T {
 		return error('State file does not exist: ${full_path}')
 	}
 	content := os.read_file(full_path)!
-	return json.decode(T, content)!
+	return json2.decode[T](content)!
 }
 
 // load_app_state_or returns the saved state if found and valid, otherwise returns default_val.
@@ -176,7 +176,7 @@ pub fn (s AppStateStore[T]) exists() bool {
 
 // save persists the in-memory state to disk atomically.
 pub fn (s AppStateStore[T]) save() ! {
-	encoded := json.encode(s.data)
+	encoded := json2.encode(s.data)
 	atomic_write(s.path(), encoded)!
 }
 
@@ -187,7 +187,7 @@ pub fn (mut s AppStateStore[T]) load() ! {
 		return error('State file not found: ${target}')
 	}
 	content := os.read_file(target)!
-	s.data = json.decode(T, content)!
+	s.data = json2.decode[T](content)!
 }
 
 // get returns a copy of the current state.
@@ -237,7 +237,7 @@ pub fn (mut s AppStateStore[T]) rollback() ! {
 		return error('No backup file available at: ${bak_path}')
 	}
 	content := os.read_file(bak_path)!
-	s.data = json.decode(T, content)!
+	s.data = json2.decode[T](content)!
 	atomic_write(s.path(), content)!
 }
 
@@ -289,7 +289,7 @@ pub fn (kv KeyValueState) exists() bool {
 
 // save persists all key-value entries to disk atomically.
 pub fn (kv KeyValueState) save() ! {
-	encoded := json.encode(kv.values)
+	encoded := json2.encode(kv.values)
 	atomic_write(kv.path(), encoded)!
 }
 
@@ -300,7 +300,7 @@ pub fn (mut kv KeyValueState) load() ! {
 		return error('Settings file not found: ${target}')
 	}
 	content := os.read_file(target)!
-	kv.values = json.decode(map[string]string, content)!
+	kv.values = json2.decode[map[string]string](content)!
 }
 
 // set_str assigns a string value.

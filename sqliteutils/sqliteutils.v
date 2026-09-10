@@ -1,16 +1,24 @@
 module sqliteutils
 
 import db.sqlite
-import json
 import os
+import json2
 
-// sanitize_identifier validates that a SQL identifier (table/column name) contains
-// only safe characters (letters, digits, underscores, hyphens) and is non-empty.
-// Table/column identifiers cannot be bound as ? parameters in SQLite, so we validate
-// them strictly instead of relying on quote-escaping.
-fn sanitize_identifier(name string) !string {
+// sanitize_identifier strictly validates that a SQL identifier (table/column name)
+// contains only safe alphanumeric characters, underscores, or hyphens, starts with a letter
+// or underscore, and does not exceed 128 characters.
+// Table/column identifiers cannot be bound as ? parameters in SQLite, so strict validation
+// eliminates SQL injection attempts into identifier slots.
+pub fn sanitize_identifier(name string) !string {
 	if name.len == 0 {
 		return error('SQL identifier must not be empty')
+	}
+	if name.len > 128 {
+		return error('SQL identifier "${name}" exceeds maximum allowed length of 128 characters')
+	}
+	first := name[0]
+	if !first.is_letter() && first != `_` {
+		return error('SQL identifier "${name}" must start with a letter or underscore')
 	}
 	for ch in name {
 		if !ch.is_letter() && !ch.is_digit() && ch != `_` && ch != `-` {
@@ -20,10 +28,25 @@ fn sanitize_identifier(name string) !string {
 	return name
 }
 
+// is_valid_identifier checks if a string is a safe, valid SQL identifier.
+pub fn is_valid_identifier(name string) bool {
+	_ = sanitize_identifier(name) or { return false }
+	return true
+}
+
+// escape_string doubles single quotes according to SQL-92 / SQLite standards to escape literal values.
+// NOTE: Parameterized queries (? placeholders) should ALWAYS be preferred over string interpolation.
+pub fn escape_string(s string) string {
+	return s.replace("'", "''")
+}
+
 // Helper function to create parent directories if path is a file path.
 fn ensure_db_dir(path string) ! {
 	if path == ':memory:' || path == '' {
 		return
+	}
+	if path.contains('\0') {
+		return error('Database path contains illegal null bytes')
 	}
 	dir := os.dir(path)
 	if dir.len > 0 {
@@ -31,12 +54,24 @@ fn ensure_db_dir(path string) ! {
 	}
 }
 
+// apply_secure_pragmas configures SQLite with recommended security and integrity settings:
+// - foreign_keys = ON (enforces relational constraint validation)
+// - trusted_schema = OFF (prevents untrusted database files from triggering code execution via malicious views/triggers)
+// - cell_size_check = ON (detects B-tree corruption early)
+pub fn apply_secure_pragmas(mut db sqlite.DB) ! {
+	db.exec('PRAGMA foreign_keys = ON;') or { return err }
+	db.exec('PRAGMA trusted_schema = OFF;') or { return err }
+	db.exec('PRAGMA cell_size_check = ON;') or { return err }
+}
+
 // Connection & Database Management
 
-// Opens a SQLite database connection, creating parent directories automatically if needed.
+// Opens a SQLite database connection, creating parent directories automatically if needed,
+// and applies secure database PRAGMAs (foreign_keys=ON, trusted_schema=OFF, cell_size_check=ON).
 pub fn open_db(path string) !sqlite.DB {
 	ensure_db_dir(path) or { return err }
 	mut db := sqlite.connect(path) or { return err }
+	apply_secure_pragmas(mut db) or { return err }
 	return db
 }
 
@@ -65,8 +100,20 @@ pub fn last_insert_id(db sqlite.DB) i64 {
 
 // Executes a raw DDL/DML SQL query without expecting row returns.
 // Caller is responsible for ensuring the query string contains no user-supplied data.
+// Use exec_sql_params for queries involving user input.
 pub fn exec_sql(mut db sqlite.DB, query string) ! {
 	db.exec(query) or { return err }
+}
+
+// Executes a parameterized DDL/DML SQL query using ? placeholders.
+// Prevents SQL injection by delegating argument binding directly to the SQLite engine.
+pub fn exec_sql_params(mut db sqlite.DB, query string, params []string) ! {
+	db.exec_param_many(query, params) or { return err }
+}
+
+// Executes a parameterized SQL query with a single bound parameter.
+pub fn exec_sql_param(mut db sqlite.DB, query string, param string) ! {
+	db.exec_param(query, param) or { return err }
 }
 
 // Checks if a table exists in the database.
@@ -160,7 +207,7 @@ pub fn create_json_store(mut db sqlite.DB, table_name string) ! {
 // Saves a struct as a JSON document under a given ID.
 pub fn save_struct[T](mut db sqlite.DB, table_name string, id string, data T) ! {
 	tbl := sanitize_identifier(table_name)!
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	// encoded is passed twice: for the INSERT value and for the ON CONFLICT UPDATE.
 	db.exec_param_many('INSERT INTO "${tbl}" (id, json_data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET json_data=?',
 		[id, encoded, encoded]) or { return err }
@@ -173,7 +220,7 @@ pub fn load_struct[T](mut db sqlite.DB, table_name string, id string) !T {
 	if rows.len == 0 || rows[0].vals.len == 0 {
 		return error('Record with ID "${id}" not found in table "${table_name}"')
 	}
-	return json.decode(T, rows[0].vals[0])
+	return json2.decode[T](rows[0].vals[0])
 }
 
 // Loads all struct records from a JSON document store table.
@@ -183,7 +230,7 @@ pub fn load_all_structs[T](mut db sqlite.DB, table_name string) ![]T {
 	mut result := []T{}
 	for row in rows {
 		if row.vals.len > 0 {
-			item := json.decode(T, row.vals[0]) or { continue }
+			item := json2.decode[T](row.vals[0]) or { continue }
 			result << item
 		}
 	}
@@ -455,16 +502,54 @@ pub fn with_transaction(mut db sqlite.DB, work fn () !) ! {
 // ─── Column Management Helpers ───────────────────────────────────────────────
 
 // sanitize_sql_type validates that a SQL type expression (e.g. "TEXT", "INTEGER NOT NULL",
-// "VARCHAR(255)") contains only safe characters. Prevents injection via type strings.
-fn sanitize_sql_type(sql_type string) !string {
+// "VARCHAR(255)", "INTEGER NOT NULL DEFAULT 0") contains only safe characters, balanced
+// delimiters, no comments, and no statement separators. Prevents injection via type strings.
+pub fn sanitize_sql_type(sql_type string) !string {
 	if sql_type.len == 0 {
 		return error('SQL type must not be empty')
 	}
+	if sql_type.len > 128 {
+		return error('SQL type "${sql_type}" exceeds maximum allowed length of 128 characters')
+	}
+	// Disallow SQL comments
+	if sql_type.contains('--') || sql_type.contains('/*') {
+		return error('SQL type must not contain SQL comments: "${sql_type}"')
+	}
+	// Disallow statement separators
+	if sql_type.contains(';') {
+		return error('SQL type must not contain semicolons: "${sql_type}"')
+	}
+	// Whitelist safe characters
 	for ch in sql_type {
 		if !ch.is_letter() && !ch.is_digit() && ch != ` ` && ch != `(` && ch != `)` && ch != `_`
 			&& ch != `-` && ch != `.` && ch != `'` && ch != `"` {
 			return error('SQL type "${sql_type}" contains disallowed character: ${ch.ascii_str()}')
 		}
+	}
+	// Check balanced parentheses
+	mut parens := 0
+	for ch in sql_type {
+		if ch == `(` {
+			parens++
+		} else if ch == `)` {
+			parens--
+			if parens < 0 {
+				return error('SQL type has unbalanced parentheses: "${sql_type}"')
+			}
+		}
+	}
+	if parens != 0 {
+		return error('SQL type has unclosed parentheses: "${sql_type}"')
+	}
+	// Check balanced single quotes
+	mut single_quotes := 0
+	for ch in sql_type {
+		if ch == `'` {
+			single_quotes++
+		}
+	}
+	if single_quotes % 2 != 0 {
+		return error('SQL type has unclosed single quotes: "${sql_type}"')
 	}
 	return sql_type
 }
@@ -572,4 +657,81 @@ pub fn get_table_schema(mut db sqlite.DB, table_name string) ![]map[string]strin
 		result << m
 	}
 	return result
+}
+
+// ─── Injection-Free Parameterized CRUD Helpers ──────────────────────────────
+
+// insert_row safely inserts a record using parameterized binding. All column names
+// are strictly validated as identifiers and all values are bound with ? placeholders.
+// Returns the newly generated rowid.
+pub fn insert_row(mut db sqlite.DB, table_name string, data map[string]string) !i64 {
+	if data.len == 0 {
+		return error('Cannot insert empty data map')
+	}
+	tbl := sanitize_identifier(table_name)!
+	mut cols := []string{cap: data.len}
+	mut placeholders := []string{cap: data.len}
+	mut vals := []string{cap: data.len}
+
+	for col, val in data {
+		safe_col := sanitize_identifier(col)!
+		cols << '"${safe_col}"'
+		placeholders << '?'
+		vals << val
+	}
+
+	query := 'INSERT INTO "${tbl}" (${cols.join(', ')}) VALUES (${placeholders.join(', ')});'
+	db.exec_param_many(query, vals) or { return err }
+	return db.last_insert_rowid()
+}
+
+// update_rows safely updates rows in table_name with column-value assignments in data
+// filtered by where_clause and where_params. All column names are strictly validated.
+pub fn update_rows(mut db sqlite.DB, table_name string, data map[string]string, where_clause string, where_params []string) ! {
+	if data.len == 0 {
+		return error('Cannot update with empty data map')
+	}
+	tbl := sanitize_identifier(table_name)!
+	mut set_clauses := []string{cap: data.len}
+	mut vals := []string{cap: data.len + where_params.len}
+
+	for col, val in data {
+		safe_col := sanitize_identifier(col)!
+		set_clauses << '"${safe_col}" = ?'
+		vals << val
+	}
+
+	for p in where_params {
+		vals << p
+	}
+
+	clause := if where_clause.len > 0 { 'WHERE ${where_clause}' } else { '' }
+	query := 'UPDATE "${tbl}" SET ${set_clauses.join(', ')} ${clause};'
+	db.exec_param_many(query, vals) or { return err }
+}
+
+// delete_rows safely deletes rows from table_name matching where_clause and where_params.
+pub fn delete_rows(mut db sqlite.DB, table_name string, where_clause string, where_params []string) ! {
+	tbl := sanitize_identifier(table_name)!
+	clause := if where_clause.len > 0 { 'WHERE ${where_clause}' } else { '' }
+	query := 'DELETE FROM "${tbl}" ${clause};'
+	db.exec_param_many(query, where_params) or { return err }
+}
+
+// select_rows safely retrieves rows from table_name selecting specific columns (or ['*'])
+// filtered by where_clause and where_params. Returns result as a slice of maps.
+pub fn select_rows(mut db sqlite.DB, table_name string, columns []string, where_clause string, where_params []string) ![]map[string]string {
+	tbl := sanitize_identifier(table_name)!
+	mut col_clause := '*'
+	if columns.len > 0 && !(columns.len == 1 && columns[0] == '*') {
+		mut safe_cols := []string{cap: columns.len}
+		for c in columns {
+			safe_cols << '"' + sanitize_identifier(c)! + '"'
+		}
+		col_clause = safe_cols.join(', ')
+	}
+
+	clause := if where_clause.len > 0 { 'WHERE ${where_clause}' } else { '' }
+	query := 'SELECT ${col_clause} FROM "${tbl}" ${clause};'
+	return query_maps_params(mut db, query, where_params)
 }

@@ -1,33 +1,33 @@
 module fileutils
 
-import json
 import os
 import rand
+import json2
 
 // Saves a slice of structs to disk as JSON.
 pub fn save_struct_array_to_file[T](path string, data []T) ! {
 	ensure_dir_exists(path) or { return err }
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	os.write_file(path, encoded) or { return err }
 }
 
 // Loads a slice of structs from a JSON file back into memory.
 pub fn load_struct_array_from_file[T](path string) ![]T {
 	content := os.read_file(path) or { return err }
-	return json.decode([]T, content)
+	return json2.decode[[]T](content)
 }
 
 // Saves a single struct to disk as JSON.
 pub fn save_struct_to_file[T](path string, data T) ! {
 	ensure_dir_exists(path) or { return err }
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	os.write_file(path, encoded) or { return err }
 }
 
 // Loads a single struct from a JSON file.
 pub fn load_struct_from_file[T](path string) !T {
 	content := os.read_file(path) or { return err }
-	return json.decode(T, content)
+	return json2.decode[T](content)
 }
 
 // Appends a single line to a text file, creating the file if needed.
@@ -58,14 +58,14 @@ pub fn read_text_file(path string) !string {
 // Saves a map to disk as JSON for simple configuration or lookup data.
 pub fn save_map_to_file[K, V](path string, data map[K]V) ! {
 	ensure_dir_exists(path) or { return err }
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	os.write_file(path, encoded) or { return err }
 }
 
 // Loads a map from a JSON file into memory.
 pub fn load_map_from_file[K, V](path string) !map[K]V {
 	content := os.read_file(path) or { return err }
-	return json.decode(map[K]V, content)
+	return json2.decode[map[K]V](content)
 }
 
 // Creates the parent directory for a file path when it does not exist.
@@ -118,20 +118,20 @@ pub fn load_config_from_file(path string, defaults map[string]string) !map[strin
 // Writes any JSON-serializable value to a file.
 pub fn write_json_file[T](path string, data T) ! {
 	ensure_dir_exists(path) or { return err }
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	os.write_file(path, encoded) or { return err }
 }
 
 // Reads a JSON file into a value of the requested type.
 pub fn read_json_file[T](path string) !T {
 	content := os.read_file(path) or { return err }
-	return json.decode(T, content)
+	return json2.decode[T](content)
 }
 
 // Appends one JSON object as a new line in a newline-delimited JSON file.
 pub fn append_json_line[T](path string, data T) ! {
 	ensure_dir_exists(path) or { return err }
-	encoded := json.encode(data)
+	encoded := json2.encode(data)
 	append_line_to_file(path, encoded) or { return err }
 }
 

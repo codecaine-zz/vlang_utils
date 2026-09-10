@@ -704,6 +704,74 @@ fn test_sanitize_sql_type_validation() {
 
 	// Semicolon injection must be rejected
 	sanitize_sql_type('TEXT; DROP TABLE users;--') or {
-		assert err.msg().contains('disallowed character')
+		assert err.msg().contains('semicolon') || err.msg().contains('comment') || err.msg().contains('disallowed')
+	}
+}
+
+fn test_sqlite_security_and_injection_defense() {
+	// 1. Identifier Sanitization & Validation
+	assert is_valid_identifier('users')
+	assert is_valid_identifier('app_config_v2')
+	assert is_valid_identifier('_private_col')
+	assert !is_valid_identifier('')
+	assert !is_valid_identifier('1table') // cannot start with digit
+	assert !is_valid_identifier('-table') // cannot start with hyphen
+	assert !is_valid_identifier('users; DROP TABLE users;')
+	assert !is_valid_identifier('users" OR "1"="1')
+	assert !is_valid_identifier('a'.repeat(129)) // length limit
+
+	// 2. SQL Type Defense
+	assert sanitize_sql_type("VARCHAR(100) DEFAULT 'unknown'") or { panic(err) } == "VARCHAR(100) DEFAULT 'unknown'"
+	sanitize_sql_type('TEXT -- comment') or {
+		assert err.msg().contains('comment')
+	}
+	sanitize_sql_type('VARCHAR(50') or {
+		assert err.msg().contains('parentheses')
+	}
+	sanitize_sql_type("TEXT DEFAULT 'unclosed") or {
+		assert err.msg().contains('single quotes')
+	}
+
+	// 3. String Escaping Helper
+	assert escape_string("O'Connor") == "O''Connor"
+	assert escape_string("admin'--") == "admin''--"
+
+	// 4. Memory DB Connection with Automatic Security PRAGMAs
+	mut db := open_db(':memory:') or { panic(err) }
+	defer { close_db(mut db) or {} }
+
+	// 5. exec_sql_params & Parameterized CRUD against injection payloads
+	exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, bio TEXT);') or { panic(err) }
+
+	injection_payload := "admin' OR '1'='1'; DROP TABLE users; --"
+	row_id := insert_row(mut db, 'users', {
+		'username': 'attacker'
+		'bio':      injection_payload
+	}) or { panic(err) }
+
+	assert row_id == 1
+
+	// Verify table still exists and payload was stored as pure text
+	assert table_exists(mut db, 'users') or { false }
+	records := select_rows(mut db, 'users', ['id', 'username', 'bio'], 'username = ?', ['attacker']) or { panic(err) }
+	assert records.len == 1
+	assert records[0]['bio'] == injection_payload
+
+	// Update rows securely with params
+	update_rows(mut db, 'users', {
+		'bio': 'cleansed'
+	}, 'username = ?', ['attacker']) or { panic(err) }
+
+	updated := select_rows(mut db, 'users', ['bio'], 'username = ?', ['attacker']) or { panic(err) }
+	assert updated[0]['bio'] == 'cleansed'
+
+	// Delete rows securely with params
+	delete_rows(mut db, 'users', 'username = ?', ['attacker']) or { panic(err) }
+	remaining := count_rows(mut db, 'users') or { panic(err) }
+	assert remaining == 0
+
+	// 6. Path null-byte rejection
+	open_db('test\0bad.db') or {
+		assert err.msg().contains('null byte')
 	}
 }

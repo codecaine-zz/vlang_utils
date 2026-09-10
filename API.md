@@ -486,16 +486,108 @@ println('Bob inserted with id: ${bob_id}') // 2
 
 ### `exec_sql(mut db sqlite.DB, query string) !`
 
-Executes raw DDL or DML SQL statements (`CREATE TABLE`, `INSERT`, `UPDATE`, `DELETE`) without returning rows.
+Executes raw static DDL or DML SQL statements (`CREATE TABLE`, `INSERT`, `UPDATE`, `DELETE`) without returning rows.
+Caller is responsible for ensuring the query string contains no unescaped user-supplied data. For user inputs, ALWAYS use `exec_sql_params` or the parameterized CRUD helpers below.
 
 ```v
 mut db := sqliteutils.open_db(':memory:')!
 
 // Create table using raw SQL
 sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);')!
+```
 
-// Insert a row using raw SQL
-sqliteutils.exec_sql(mut db, "INSERT INTO users (name) VALUES ('Alice');")!
+---
+
+### `exec_sql_params(mut db sqlite.DB, query string, params []string) !` & `exec_sql_param`
+
+Executes parameterized SQL statements using `?` placeholders, delegating argument binding directly to SQLite to guarantee complete immunity against SQL injection.
+
+```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);')!
+
+// Parameterized execution prevents SQL injection even with malicious inputs
+user_input := "admin' OR 1=1; DROP TABLE users; --"
+sqliteutils.exec_sql_params(mut db, 'INSERT INTO users (name, email) VALUES (?, ?)', ['attacker', user_input])!
+```
+
+---
+
+### Security & SQL Injection Prevention Helpers
+
+#### `sanitize_identifier(name string) !string` & `is_valid_identifier(name string) bool`
+Strictly validates table and column identifiers against injection. Valid identifiers must start with an ASCII letter or underscore, contain only `[a-zA-Z0-9_-]`, and be under 128 characters.
+
+```v
+import sqliteutils
+
+safe_table := sqliteutils.sanitize_identifier('user_accounts')!
+assert sqliteutils.is_valid_identifier('users') == true
+assert sqliteutils.is_valid_identifier('users; DROP TABLE users;') == false
+```
+
+#### `escape_string(s string) string`
+Doubles single quotes according to SQL-92 standards (`'` -> `''`). Parameterized queries should always be favored over string interpolation.
+
+```v
+safe_literal := sqliteutils.escape_string("O'Connor") // "O''Connor"
+```
+
+#### `sanitize_sql_type(sql_type string) !string`
+Validates that a SQL column type definition (e.g. `TEXT`, `INTEGER NOT NULL`, `VARCHAR(255)`) contains only safe characters, balanced delimiters, no comment injection (`--`, `/*`), and no statement separators (`;`).
+
+```v
+safe_type := sqliteutils.sanitize_sql_type('VARCHAR(255) NOT NULL')!
+```
+
+#### `apply_secure_pragmas(mut db sqlite.DB) !`
+Applies recommended security and durability settings to SQLite:
+- `foreign_keys = ON`: Validates foreign key constraints.
+- `trusted_schema = OFF`: Blocks malicious triggers/views in untrusted schemas.
+- `cell_size_check = ON`: Detects B-tree corruption early.
+*(Note: `open_db` calls `apply_secure_pragmas` automatically).*
+
+---
+
+### Injection-Free Parameterized CRUD Helpers
+
+High-level helpers that eliminate manual SQL query construction for common CRUD operations:
+
+#### `insert_row(mut db sqlite.DB, table_name string, data map[string]string) !i64`
+Safely inserts a record with automatic parameter binding. Returns the newly generated `last_insert_rowid`.
+
+```v
+new_id := sqliteutils.insert_row(mut db, 'users', {
+    'name':  'Alice'
+    'email': 'alice@example.com'
+})!
+println('Created user id: ${new_id}')
+```
+
+#### `select_rows(mut db sqlite.DB, table_name string, columns []string, where_clause string, where_params []string) ![]map[string]string`
+Safely queries rows with bound filter parameters.
+
+```v
+users := sqliteutils.select_rows(mut db, 'users', ['id', 'name', 'email'], 'name = ?', ['Alice'])!
+for u in users {
+    println('Found: ${u["name"]} (${u["email"]})')
+}
+```
+
+#### `update_rows(mut db sqlite.DB, table_name string, data map[string]string, where_clause string, where_params []string) !`
+Safely updates records with bound parameters.
+
+```v
+sqliteutils.update_rows(mut db, 'users', {
+    'email': 'alice.new@example.com'
+}, 'id = ?', ['1'])!
+```
+
+#### `delete_rows(mut db sqlite.DB, table_name string, where_clause string, where_params []string) !`
+Safely deletes records matching parameterized criteria.
+
+```v
+sqliteutils.delete_rows(mut db, 'users', 'id = ?', ['1'])!
 ```
 
 ---
@@ -1323,7 +1415,7 @@ assert strutils.truncate_words('The quick brown fox jumps', 3, '...') == 'The qu
 ---
 
 ### `pad_left(s string, width int, pad_char string) string`
-Pads the beginning of a string until it reaches the specified width.
+Pads the beginning of a string until it reaches the specified width. Automatically utilizes V's built-in string interpolation formatting (`${s:(width)}`) when padding with spaces on ASCII.
 ```v
 assert strutils.pad_left('42', 5, '0') == '00042'
 ```
@@ -1331,7 +1423,7 @@ assert strutils.pad_left('42', 5, '0') == '00042'
 ---
 
 ### `pad_right(s string, width int, pad_char string) string`
-Pads the end of a string until it reaches the specified width.
+Pads the end of a string until it reaches the specified width. Automatically utilizes V's built-in string interpolation formatting (`${s:-(width)}`) when padding with spaces on ASCII.
 ```v
 assert strutils.pad_right('hi', 5, ' ') == 'hi   '
 ```
@@ -1362,10 +1454,35 @@ assert strutils.mask_email('john.doe@example.com') == 'j******e@example.com'
 
 ---
 
+### `random_string(len int, charset string) string`
+Generates a random string of the specified length using custom runes from `charset`.
+```v
+custom_code := strutils.random_string(8, 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789')
+```
+
+---
+
 ### `random_alphanumeric(len int) string`
 Generates a random string containing letters (A-Z, a-z) and digits (0-9).
 ```v
 token := strutils.random_alphanumeric(16)
+```
+
+---
+
+### `random_hex(len int) string`
+Generates a random lowercase hexadecimal string of length `len`.
+```v
+hex_token := strutils.random_hex(32)
+```
+
+---
+
+### `extract_between(s string, start_delim string, end_delim string) ?string`
+Extracts the substring bounded between two delimiter strings, or returns `none` if not found.
+```v
+tag := strutils.extract_between('<title>Home Page</title>', '<title>', '</title>') or { '' }
+assert tag == 'Home Page'
 ```
 
 ---
@@ -1395,7 +1512,7 @@ wrapped := strutils.word_wrap('one two three four five', 10)
 ---
 
 ### `levenshtein_distance(a string, b string) int`
-Calculates the minimum edit operations (insertions, deletions, substitutions) between two strings.
+Calculates the minimum edit operations (insertions, deletions, substitutions) between two strings using V's built-in standard library `strings.levenshtein_distance`.
 ```v
 assert strutils.levenshtein_distance('kitten', 'sitting') == 3
 ```
@@ -1507,10 +1624,40 @@ sliceutils.shuffle(mut items)
 ---
 
 ### `sum_int(arr []int) int` and `average_int(arr []int) f64`
-Numeric aggregations for integer slices.
+Calculates the arithmetic sum and average of integer slices.
 ```v
 assert sliceutils.sum_int([1, 2, 3, 4]) == 10
 assert sliceutils.average_int([1, 2, 3, 4]) == 2.5
+```
+
+---
+
+### `min_int(arr []int) ?int` and `max_int(arr []int) ?int`
+Finds the minimum and maximum integers in a slice, returning `none` if empty.
+```v
+nums := [42, 10, 88, 3]
+min_val := sliceutils.min_int(nums) or { 0 } // 3
+max_val := sliceutils.max_int(nums) or { 0 } // 88
+```
+
+---
+
+### `sum_f64(arr []f64) f64` and `average_f64(arr []f64) f64`
+Calculates the arithmetic sum and average of floating point slices.
+```v
+floats := [1.5, 2.5, 3.5, 4.5]
+assert sliceutils.sum_f64(floats) == 12.0
+assert sliceutils.average_f64(floats) == 3.0
+```
+
+---
+
+### `min_f64(arr []f64) ?f64` and `max_f64(arr []f64) ?f64`
+Finds the minimum and maximum floating point values in a slice, returning `none` if empty.
+```v
+floats := [1.5, -2.5, 8.2]
+min_f := sliceutils.min_f64(floats) or { 0.0 } // -2.5
+max_f := sliceutils.max_f64(floats) or { 0.0 } // 8.2
 ```
 
 ---
@@ -1555,9 +1702,30 @@ secret := envutils.get_required('JWT_SECRET')!
 ---
 
 ### `load_dotenv(path string) !map[string]string`
-Loads a `.env` file into the OS environment and returns the key-value map.
+Loads a `.env` file into the OS environment and returns the parsed key-value map.
 ```v
-envutils.load_dotenv('.env')!
+env_vars := envutils.load_dotenv('.env')!
+println('Loaded ${env_vars.len} variables')
+```
+
+---
+
+### `load_dotenv_auto() bool`
+Searches for `.env` in the current working directory, loading it into the environment if present. Returns `true` if found and loaded, `false` otherwise.
+```v
+if envutils.load_dotenv_auto() {
+    println('Successfully loaded .env from working directory')
+}
+```
+
+---
+
+### `parse_dotenv_content(content string) map[string]string`
+Parses raw `.env` formatted content string without touching the OS environment.
+```v
+env_map := envutils.parse_dotenv_content('PORT=8080\nDEBUG=true\nDB_PASS="secret #1"')
+assert env_map['PORT'] == '8080'
+assert env_map['DB_PASS'] == 'secret #1'
 ```
 
 ---
@@ -1577,26 +1745,39 @@ Import statement:
 import cryptoutils
 ```
 
-### `sha256(s string) string`
+### `sha256(s string) string` & `sha256_hex(s string) string`
 Returns the hexadecimal SHA-256 hash.
 ```v
 hash := cryptoutils.sha256('hello')
+assert cryptoutils.sha256_hex('hello') == hash
 ```
 
 ---
 
-### `sha512(s string) string`
+### `sha512(s string) string` & `sha512_hex(s string) string`
 Returns the hexadecimal SHA-512 hash.
 ```v
 hash := cryptoutils.sha512('hello')
+assert cryptoutils.sha512_hex('hello') == hash
 ```
 
 ---
 
-### `md5(s string) string`
+### `md5(s string) string` & `md5_hex(s string) string`
 Returns the hexadecimal MD5 hash.
 ```v
 hash := cryptoutils.md5('hello')
+assert cryptoutils.md5_hex('hello') == hash
+```
+
+---
+
+### `to_hex(b []u8) string` & `from_hex(s string) ![]u8`
+Encodes bytes into hexadecimal and decodes hexadecimal strings back to raw bytes.
+```v
+raw := [u8(0xde), u8(0xad), u8(0xbe), u8(0xef)]
+hex_str := cryptoutils.to_hex(raw) // "deadbeef"
+bytes := cryptoutils.from_hex('deadbeef')!
 ```
 
 ---
@@ -1692,6 +1873,16 @@ today_start := timeutils.start_of_day(time.now())
 
 ---
 
+### `days_between(a time.Time, b time.Time) int`
+Returns the absolute number of calendar days between two timestamps.
+```v
+t1 := time.now()
+t2 := t1.add(86400 * 5 * time.second)
+assert timeutils.days_between(t1, t2) == 5
+```
+
+---
+
 ### `is_weekend(t time.Time) bool`
 Checks if `t` falls on Saturday or Sunday.
 ```v
@@ -1703,12 +1894,19 @@ if timeutils.is_weekend(time.now()) {
 ---
 
 ### `Stopwatch`
-High-resolution timer for benchmarks.
+High-resolution timer for benchmarks, latency tracking, and profiling.
 ```v
 mut sw := timeutils.new_stopwatch()
-// perform work...
+println('Running: ${sw.is_running()}') // true
+
+// perform task...
 sw.stop()
-println('Elapsed: ${sw.elapsed_ms():.2f} ms')
+
+println('Elapsed ms: ${sw.elapsed_ms():.2f} ms')
+println('Elapsed seconds: ${sw.elapsed_seconds():.4f} s')
+println('Duration: ${sw.elapsed()}')
+
+sw.reset()
 ```
 
 ---
@@ -1744,14 +1942,43 @@ body := httputils.get_text('https://httpbin.org/get', {})!
 
 ---
 
+### `post_text(url string, body string, headers map[string]string) !string`
+Sends an HTTP POST request with raw text payload and returns the response body.
+```v
+res := httputils.post_text('https://httpbin.org/post', 'hello world', {
+    'Content-Type': 'text/plain'
+})!
+```
+
+---
+
 ### `get_json[T](url string, headers map[string]string) !T`
-Fetches JSON endpoint and parses directly into struct `T`.
+Fetches JSON endpoint and parses directly into struct `T` using `json2`.
 ```v
 struct UserInfo {
     id   int
     name string
 }
 user := httputils.get_json[UserInfo]('https://api.example.com/user/1', {})!
+```
+
+---
+
+### `post_json[T, R](url string, body T, headers map[string]string) !R`
+Sends a JSON-serialized payload struct `T` via HTTP POST and parses the response into struct `R` using `json2`.
+```v
+struct CreateUserReq {
+    name  string
+    email string
+}
+struct UserResponse {
+    id    int
+    name  string
+    email string
+}
+
+req := CreateUserReq{ name: 'Alice', email: 'alice@example.com' }
+user_res := httputils.post_json[CreateUserReq, UserResponse]('https://api.example.com/users', req, {})!
 ```
 
 ---
@@ -1764,6 +1991,21 @@ httputils.download_file('https://example.com/archive.zip', 'downloads/archive.zi
 
 ---
 
+### `fetch_with_retry(mut req http.Request, config RetryConfig) !http.Response`
+Executes an HTTP request with exponential backoff on network failures or 5xx server errors.
+```v
+import net.http
+
+mut req := http.new_request(.get, 'https://api.example.com/data', '')
+res := httputils.fetch_with_retry(mut req, httputils.RetryConfig{
+    max_retries: 3
+    initial_delay_ms: 250
+    backoff_factor: 2.0
+})!
+```
+
+---
+
 # cliutils API
 
 Import statement:
@@ -1771,132 +2013,317 @@ Import statement:
 import cliutils
 ```
 
-### ANSI Colors & Styles
-Zero external dependencies, terminal styling helpers:
+### ANSI Colors & Text Styles
+Zero external dependencies. Returns ANSI escape-coded strings for styled terminal output.
+
 ```v
-println(cliutils.bold('Bold text'))
-println(cliutils.green('Success message'))
-println(cliutils.red('Error message'))
-println(cliutils.yellow('Warning message'))
-println(cliutils.cyan('Info message'))
+import cliutils
+
+// Standard colors
+println(cliutils.green('Operation completed successfully'))
+println(cliutils.red('Fatal: Connection refused'))
+println(cliutils.yellow('Warning: High memory pressure'))
+println(cliutils.cyan('Info: Listening on port 8080'))
+println(cliutils.blue('Notice: Update available'))
+println(cliutils.magenta('Highlight: Special token'))
+println(cliutils.gray('Debug: [trace_id=4829]'))
+
+// Text decorations
+println(cliutils.bold('Bold Header'))
+println(cliutils.dim('Dimmed secondary text'))
+println(cliutils.italic('Italicized note'))
+println(cliutils.underline('Underlined link'))
+
+// Combining styles
+println(cliutils.bold(cliutils.green('SUCCESS: All checks passed!')))
 ```
 
 ---
 
 ### `strip_ansi(s string) string`
-Strips ANSI formatting codes from a string for plain-text logging.
+Removes all ANSI escape color and formatting codes from a string (ideal for writing clean log files).
+
 ```v
-plain := cliutils.strip_ansi(cliutils.bold(cliutils.red('Error'))) // "Error"
+import cliutils
+
+styled := cliutils.bold(cliutils.red('Error 404: Not Found'))
+plain := cliutils.strip_ansi(styled)
+println(plain) // "Error 404: Not Found"
 ```
 
 ---
 
-### `ProgressBar`
-Interactive terminal ASCII progress bar.
+### Interactive Terminal Prompts
+
+#### `prompt(message string) string`
+Displays a text prompt and reads the user's line input.
+
 ```v
-mut pb := cliutils.new_progress_bar(100, 25)
-pb.update(50)
-println(pb.render()) // "[============>            ]  50% (50/100)"
+import cliutils
+
+name := cliutils.prompt('Enter your project name: ')
+println('Creating project: ${name}')
+```
+
+#### `prompt_confirm(message string, default_val bool) bool`
+Asks a yes/no question with a default fallback if the user presses Enter.
+
+```v
+import cliutils
+
+proceed := cliutils.prompt_confirm('Do you want to deploy to production?', false)
+if proceed {
+    println('Deploying...')
+} else {
+    println('Deployment aborted.')
+}
+```
+
+#### `prompt_select(message string, options []string) ?int`
+Presents a numbered list of choices to the user and returns the selected zero-based index.
+
+```v
+import cliutils
+
+options := ['Development', 'Staging', 'Production']
+idx := cliutils.prompt_select('Choose target environment:', options) or {
+    println('Invalid selection')
+    return
+}
+println('Selected: ${options[idx]}')
 ```
 
 ---
 
-### `sparkline(values []f64) string`
-Renders an in-line sparkline chart using UTF-8 block characters (` ▂▃▄▅▆▇█`).
+### Terminal Visualizations
+
+#### `ProgressBar`
+Interactive terminal ASCII progress bar with percentage and step indicators.
+
 ```v
-spark := cliutils.sparkline([1.0, 3.0, 5.0, 8.0, 4.0, 2.0, 9.0, 7.0, 10.0])
-println('Activity: ${spark}')
+import cliutils
+import time
+
+mut pb := cliutils.new_progress_bar(100, 30)
+for i in 1 .. 101 {
+    pb.update(i)
+    print('\r' + pb.render())
+    time.sleep(10 * time.millisecond)
+}
+println('')
 ```
 
----
+#### `sparkline(values []f64) string`
+Renders an in-line sparkline chart using UTF-8 block glyphs (` ▂▃▄▅▆▇█`).
 
-### `bar_chart(title string, items map[string]f64, max_width int) string`
-Generates a horizontal ASCII/Unicode bar chart.
 ```v
-chart := cliutils.bar_chart('Server Load', {
-    'Web': 45.0
-    'DB': 85.0
-    'Cache': 20.0
+import cliutils
+
+history := [10.0, 25.0, 15.0, 60.0, 80.0, 45.0, 95.0, 100.0, 70.0]
+println('Network Activity: ' + cliutils.sparkline(history))
+```
+
+#### `bar_chart(title string, items map[string]f64, max_width int) string`
+Generates a clean horizontal Unicode bar chart.
+
+```v
+import cliutils
+
+chart := cliutils.bar_chart('Server Resource Usage', {
+    'CPU %':  42.5
+    'RAM %':  78.2
+    'Disk %': 65.0
 }, 25)
 println(chart)
 ```
 
----
+#### `gauge(label string, current f64, max f64, unit string) string`
+Generates a meter gauge with percentage calculation and status color badge (`[OK]`, `[WARN]`, `[CRITICAL]`).
 
-### `gauge(label string, current f64, max f64, unit string) string`
-Generates a single-metric meter gauge with percentage and threshold status ([OK], [WARN], [CRITICAL]).
 ```v
-println(cliutils.gauge('RAM', 7.5, 16.0, 'GB'))
+import cliutils
+
+println(cliutils.gauge('RAM Usage', 7.2, 16.0, 'GB'))
+println(cliutils.gauge('CPU Load', 92.0, 100.0, '%'))
+```
+
+#### `TreeNode`, `new_tree_node`, `add_child`, and `render_tree`
+Visualizes hierarchical directory trees, taxonomies, and nested data using Unicode branch glyphs (`├──`, `└──`, `│   `).
+
+```v
+import cliutils
+
+// Manual or programmatic tree construction
+mut root := cliutils.new_tree_node('my_project')
+root.add_child('README.md')
+mut src := root.add_child('src')
+src.add_child('main.v')
+src.add_child('config.v')
+root.add_child('v.mod')
+
+println(cliutils.render_tree(&root))
+```
+
+#### `diff_text(old_text string, new_text string) string` & `diff(old_text string, new_text string)`
+Generates and displays colorized line-by-line unified diffs with green additions and red deletions.
+
+```v
+import cliutils
+
+old_code := "fn main() {\n\tprintln('old')\n}"
+new_code := "fn main() {\n\tprintln('new feature')\n}"
+
+// Output directly or capture string
+diff_str := cliutils.diff_text(old_code, new_code)
+println(diff_str)
 ```
 
 ---
 
-### `render_tree(root TreeNode) string`
-Renders a hierarchical directory-like tree structure using Unicode branch lines.
+### Presentation & Layout Components
+
+#### `banner(title string, subtitle string) string`
+Creates a stylish, framed header banner.
+
 ```v
-tree := cliutils.TreeNode{
-    label: 'Root'
-    children: [
-        cliutils.TreeNode{ label: 'File 1.txt' },
-        cliutils.TreeNode{
-            label: 'Folder'
-            children: [
-                cliutils.TreeNode{ label: 'Subfile.v' }
-            ]
-        }
-    ]
-}
-println(cliutils.render_tree(tree))
+import cliutils
+
+println(cliutils.banner('ANTIGRAVITY CLI v2.0', 'High-Performance Developer Toolkit'))
+```
+
+#### `panel(title string, content string) string` (or `card`)
+Renders a bordered box panel for notices, summaries, and cards.
+
+```v
+import cliutils
+
+println(cliutils.panel('Service Status', 'API Gateway: Online\nLatency: 14ms\nUptime: 99.98%'))
+```
+
+#### `divider(ch rune, width int) string`
+Renders a horizontal rule across the terminal.
+
+```v
+import cliutils
+
+println(cliutils.divider(`=`, 60))
+println(cliutils.divider(`-`, 40))
+```
+
+#### `badge(label string, value string, color_fn fn (string) string) string`
+Generates an inverted status badge tag.
+
+```v
+import cliutils
+
+println(cliutils.badge('ENV', 'PRODUCTION', cliutils.red))
+println(cliutils.badge('BUILD', 'PASSING', cliutils.green))
 ```
 
 ---
 
-### `diff(old_lines []string, new_lines []string) []DiffLine` & `diff_text(old_text string, new_text string) string`
-Computes and formats a color-coded unified diff between two texts.
-```v
-diff_output := cliutils.diff_text("line 1\nold line", "line 1\nnew line")
-println(diff_output)
-```
+### Data Formatting & Table Export
 
----
+#### `table_to_markdown`, `table_to_csv`, `table_to_json`
+Serializes 2D table data into GitHub Flavored Markdown, RFC CSV, or JSON array format.
 
-### Table Formatting: `table_to_markdown`, `table_to_csv`, `table_to_json`
-Formats tabular data into markdown tables, CSV format, or JSON structures.
 ```v
-headers := ['ID', 'Name', 'Role']
+import cliutils
+
+headers := ['ID', 'User', 'Role', 'Status']
 rows := [
-    ['1', 'Alice', 'Admin'],
-    ['2', 'Bob', 'Member'],
+    ['1', 'alice', 'Admin', 'Active'],
+    ['2', 'bob', 'Developer', 'Pending'],
+    ['3', 'charlie', 'Viewer', 'Active']
 ]
-md_table := cliutils.table_to_markdown(headers, rows)
-csv_table := cliutils.table_to_csv(headers, rows)
-json_table := cliutils.table_to_json(headers, rows)
+
+md := cliutils.table_to_markdown(headers, rows)
+println(md)
+
+csv := cliutils.table_to_csv(headers, rows)
+println(csv)
+
+json_data := cliutils.table_to_json(headers, rows)
+println(cliutils.json_highlight(json_data))
+```
+
+#### `json_highlight(json_str string) string`
+Adds syntax coloring (cyan keys, yellow values) to formatted JSON strings.
+
+```v
+import cliutils
+
+raw_json := '{\n  "name": "vlang_utils",\n  "version": "0.1.0",\n  "active": true\n}'
+println(cliutils.json_highlight(raw_json))
 ```
 
 ---
 
-### `FlagParser`
-Lightweight, ergonomic CLI argument and option parser.
+### CLI Tools: `FlagParser`, `Pipeline`, `Logger`
+
+#### `FlagParser` and `FlagDef`
+Ergonomic command-line flag and argument parser supporting string, int, bool, and float flags with automated `-h, --help` generation and positional argument extraction.
+
 ```v
-mut fp := cliutils.new_flag_parser(['--port', '8080', '-v', 'run', 'main.v'])
-port := fp.get_int('port', 3000)      // 8080
-verbose := fp.get_bool('v', false)    // true
-cmd := fp.args[0]                     // "run"
+import cliutils
+import os
+
+mut fp := cliutils.new_flag_parser('deployer', 'Automated cloud deployment utility')
+fp.add_flag_string('env', 'e', 'staging', 'Target deployment environment')
+fp.add_flag_int('port', 'p', 8080, 'Listening HTTP port')
+fp.add_flag_float('timeout', 't', 30.5, 'Request timeout in seconds')
+fp.add_flag_bool('verbose', 'v', false, 'Enable verbose debug output')
+
+fp.parse(os.args[1..])!
+
+if fp.get_bool('verbose') {
+    println('Verbose mode active')
+}
+println('Target: ' + fp.get_string('env'))
+println('Port: ${fp.get_int('port')}')
+println('Timeout: ${fp.get_float('timeout')}s')
+
+// Positional arguments
+pos_args := fp.get_positional()
+println('Positional arguments: ${pos_args}')
+
+// Programmatic help printing
+help_text := fp.format_help()
+fp.print_help()
 ```
 
----
+#### `Pipeline` and `PipelineStep`
+Task runner executing a multi-step sequential workflow composed of `PipelineStep` actions, halting on failure.
 
-### `Pipeline` & `Logger`
-Functional step pipeline and structured console logging.
 ```v
-mut pipe := cliutils.new_pipeline('Build Pipeline')
-pipe.step('Check Env', fn () ! { /* verify */ })
-pipe.step('Compile', fn () ! { /* build */ })
-res := pipe.run()
+import cliutils
 
-mut logger := cliutils.new_logger(cliutils.LogLevel.info)
-logger.info('Application starting')
-logger.warn('High memory usage detected')
+mut p := cliutils.new_pipeline('Deploy Pipeline')
+p.add_step('Check Environment', fn () bool {
+    return true
+})
+p.add_step('Build Release Binaries', fn () bool {
+    return true
+})
+p.add_step('Deploy to Cluster', fn () bool {
+    return true
+})
+
+success := p.run()
+println('Pipeline succeeded: ${success}')
+```
+
+#### `Logger`
+Structured console logger supporting log level filtering (`debug`, `info`, `warn`, `error`).
+
+```v
+import cliutils
+
+mut log := cliutils.new_logger(cliutils.LogLevel.info)
+log.debug('Connecting to database...') // suppressed because level is info
+log.info('Server started on :8080')
+log.warn('Disk capacity above 80%')
+log.error('Failed to send webhook notification')
 ```
 
 ---
@@ -1908,96 +2335,212 @@ Import statement:
 import sysutils
 ```
 
-### System Telemetry
+### Hardware Telemetry & Probing
 
-#### `get_cpu_count() int`
-Returns the count of logical CPU cores on the host.
+#### `get_cpu_count() int` & `get_cpu_usage() f64`
+Retrieves logical CPU core count and current system CPU utilization percentage.
+
 ```v
+import sysutils
+
 cores := sysutils.get_cpu_count()
-```
-
-#### `get_cpu_usage() f64`
-Returns the current total CPU usage percentage (0.0 to 100.0).
-```v
 usage := sysutils.get_cpu_usage()
+println('CPU: ${cores} cores @ ${usage:.1f}% load')
 ```
 
 #### `get_load_averages() (f64, f64, f64)`
 Returns the 1-minute, 5-minute, and 15-minute system load averages.
+
 ```v
+import sysutils
+
 l1, l5, l15 := sysutils.get_load_averages()
+println('Load average: 1m=${l1:.2f}, 5m=${l5:.2f}, 15m=${l15:.2f}')
 ```
 
-#### `get_memory_stats() (u64, u64, f64)`
-Returns `(total_bytes, used_bytes, used_percent)` for physical RAM.
-```v
-total, used, pct := sysutils.get_memory_stats()
-```
+#### `get_memory_stats() (u64, u64, f64)` & `get_swap_stats() (u64, u64, f64)`
+Returns `(total_bytes, used_bytes, used_percent)` for RAM and swap memory.
 
-#### `get_swap_stats() (u64, u64, f64)`
-Returns `(total_bytes, used_bytes, used_percent)` for swap memory.
 ```v
-total, used, pct := sysutils.get_swap_stats()
+import sysutils
+
+total_ram, used_ram, ram_pct := sysutils.get_memory_stats()
+println('RAM: ${used_ram / (1024 * 1024)} MB / ${total_ram / (1024 * 1024)} MB (${ram_pct:.1f}%)')
+
+total_swap, used_swap, swap_pct := sysutils.get_swap_stats()
+println('Swap: ${used_swap / (1024 * 1024)} MB / ${total_swap / (1024 * 1024)} MB')
 ```
 
 #### `get_disk_stats(path string) (u64, u64, f64)`
-Returns `(total_bytes, used_bytes, used_percent)` for the filesystem containing `path`.
+Returns `(total_bytes, used_bytes, used_percent)` for the filesystem containing the given path.
+
 ```v
+import sysutils
+
 total, used, pct := sysutils.get_disk_stats('/')
+println('Disk (/): ${used / (1024 * 1024 * 1024)} GB / ${total / (1024 * 1024 * 1024)} GB (${pct:.1f}%)')
 ```
 
-#### `get_uptime() i64`
-Returns the system uptime in seconds.
+#### `get_battery_level() ?int`, `is_battery_charging() ?bool` & `get_uptime() i64`
+Queries laptop battery percentage, AC power/charging state, and system uptime in seconds.
+
 ```v
-secs := sysutils.get_uptime()
+import sysutils
+
+if battery := sysutils.get_battery_level() {
+    charging := sysutils.is_battery_charging() or { false }
+    println('Battery: ${battery}% (Charging: ${charging})')
+}
+uptime := sysutils.get_uptime()
+println('Uptime: ${uptime} seconds')
 ```
 
 #### `get_system_locale() string` & `get_os_theme() string`
-Detects user language/locale (e.g. `en_US.UTF-8`) and dark/light OS theme (`"dark"` or `"light"`).
+Detects user language/locale (e.g. `en_US.UTF-8`) and OS appearance mode (`"dark"` or `"light"`).
+
 ```v
+import sysutils
+
 locale := sysutils.get_system_locale()
 theme := sysutils.get_os_theme()
+println('System Locale: ${locale}, Theme: ${theme}')
 ```
 
 ---
 
-### Process Security & Safe Execution
+### Process Security & Command Execution
 
 #### `exec_safe(cmd string, args []string) (string, int)`
-Safely executes an external command with arguments, avoiding shell injection risks.
+Executes external processes safely with separate argument vectors, preventing shell injection.
+
 ```v
-out, code := sysutils.exec_safe('git', ['status', '--short'])
+import sysutils
+
+stdout, code := sysutils.exec_safe('git', ['status', '--porcelain'])
+if code == 0 {
+    println('Git status:\n${stdout}')
+}
 ```
 
-#### `quote_arg(arg string) string` & `sanitize_filename(name string) string`
-Quotes command-line arguments to prevent shell expansion, and cleans filename inputs from traversal attempts.
+#### `exec_timeout(cmd string, timeout_ms i64) ExecTimeoutResult`
+Executes a command with a maximum time limit, returning structured output, exit code, and `timed_out` boolean flag.
+
 ```v
-clean_path := sysutils.sanitize_filename('../../etc/secret.txt') // "secret.txt"
+import sysutils
+
+res := sysutils.exec_timeout('ping -c 5 1.1.1.1', 2000)
+if res.timed_out {
+    println('Process exceeded 2000ms timeout!')
+} else {
+    println('Command completed with code ${res.exit_code}: ${res.output}')
+}
 ```
 
-#### `has_command(name string) bool` & `is_process_running(pid int) bool`
-Checks if an executable exists on the system `$PATH`, and whether a PID is alive.
+#### `exec_retry(cmd string, retries int, delay_ms int) ExecRetryResult`
+Runs an external command with automatic retries if non-zero exit code occurs, returning the final output, exit code, and number of attempts made.
+
 ```v
-has_git := sysutils.has_command('git')
-is_alive := sysutils.is_process_running(1234)
+import sysutils
+
+retry_res := sysutils.exec_retry('curl -s https://api.github.com', 3, 500)
+println('Attempts: ${retry_res.attempts}, Exit code: ${retry_res.exit_code}')
+```
+
+#### `exec_or(cmd string, default_output string) string`
+Executes a command and returns `default_output` if execution fails or exits non-zero.
+
+```v
+import sysutils
+
+branch := sysutils.exec_or('git rev-parse --abbrev-ref HEAD', 'main').trim_space()
+println('Current branch: ${branch}')
+```
+
+#### `quote_arg(arg string) string`, `quote_path(path string) string` & `sanitize_filename(name string) string`
+Quotes command-line arguments and paths (expanding `~`) to prevent shell injection, and cleans filename inputs from path traversal attacks.
+
+```v
+import sysutils
+
+safe_arg := sysutils.quote_arg('hello; rm -rf /')
+safe_path := sysutils.quote_path('~/My Documents/Report.pdf')
+clean_name := sysutils.sanitize_filename('../../etc/passwd') // "passwd"
+```
+
+#### `has_command(name string) bool`, `is_process_running(pid int) bool`, `kill_process(pid int) bool`, `get_command_path(name string) ?string`
+Checks command availability on system `$PATH`, checks if a PID is alive, terminates processes by PID, and finds binary locations.
+
+```v
+import sysutils
+import os
+
+if sysutils.has_command('docker') {
+    path := sysutils.get_command_path('docker') or { '' }
+    println('Docker located at: ${path}')
+}
+running := sysutils.is_process_running(os.getpid())
+// Terminate process: sysutils.kill_process(pid)
+```
+
+#### `beep()`
+Produces an audible terminal bell alert (`\a`).
+
+```v
+import sysutils
+
+sysutils.beep()
 ```
 
 ---
 
-### Standard Paths & Clipboard
+### Standard System Paths & Clipboard
 
-#### `get_app_config_dir(app_name string) string` & `get_app_data_dir(app_name string) string`
-Returns standard cross-platform directories for configuration, persistent data, cache, and logs.
+#### Application Directories
+Provides standard OS paths:
+- `get_app_config_dir(app_name string) string`
+- `get_app_data_dir(app_name string) string`
+- `get_app_data_path(app_name string, filename string) string`
+- `get_app_config_path(app_name string, filename string) string`
+- `get_app_cache_dir(app_name string) string`
+- `get_app_log_dir(app_name string) string`
+
 ```v
-cfg_dir := sysutils.get_app_config_dir('my_app')
+import sysutils
+
 data_dir := sysutils.get_app_data_dir('my_app')
+cfg_file := sysutils.get_app_config_path('my_app', 'settings.json')
+println('Config file path: ${cfg_file}')
 ```
 
-#### `copy_to_clipboard(text string) !` & `get_clipboard_text() !string`
-Cross-platform system clipboard read and write.
+#### User & System Directories
+- `get_user_home_dir() string`
+- `get_system_path(folder_name string) string` (`"desktop"`, `"documents"`, `"downloads"`, `"music"`, `"pictures"`, `"videos"`)
+- `resolve_user_path(path string) string` (expands `~/` to home directory)
+
 ```v
-sysutils.copy_to_clipboard('Copied payload')!
-text := sysutils.get_clipboard_text()!
+import sysutils
+
+downloads := sysutils.get_system_path('downloads')
+expanded := sysutils.resolve_user_path('~/Projects/my_app')
+println('Resolved path: ${expanded}')
+```
+
+#### Clipboard & Notifications
+- `copy_to_clipboard(text string) !`
+- `get_clipboard_text() !string`
+- `notify(title string, message string)`
+- `say(text string) !`
+
+```v
+import sysutils
+
+// System Clipboard
+sysutils.copy_to_clipboard('Copied API Key: 12345')!
+clip := sysutils.get_clipboard_text()!
+
+// Desktop notification & speech
+sysutils.notify('Build Complete', 'All 15 modules compiled successfully!')
+sysutils.say('Build finished successfully') or {}
 ```
 
 ---
@@ -2011,35 +2554,70 @@ import netutils
 
 ### `is_online() bool`
 Checks whether active Internet connectivity is present.
+
 ```v
+import netutils
+
 if netutils.is_online() {
-    println('Connected!')
+    println('Internet connection active')
+} else {
+    println('Offline mode')
+}
+```
+
+### `ping_tcp_port(host string, port int, timeout_ms int) bool`
+Checks whether a remote or local TCP service is reachable within a timeout.
+
+```v
+import netutils
+
+is_db_up := netutils.ping_tcp_port('127.0.0.1', 5432, 1000)
+if is_db_up {
+    println('Postgres is reachable')
 }
 ```
 
 ### `get_local_ip() string` & `get_public_ip() !string`
-Returns the machine's local subnet IP (e.g. `192.168.1.100`) and queries external public IP.
+Resolves local subnet IP address (e.g. `192.168.1.50`) and queries external public IP.
+
 ```v
+import netutils
+
 local := netutils.get_local_ip()
-public := netutils.get_public_ip()!
+public := netutils.get_public_ip() or { 'Unavailable' }
+println('Local: ${local} | Public: ${public}')
 ```
 
-### `get_dns_servers() []string`
-Returns configured DNS nameserver IP addresses.
+### `get_mac_address() string` & `get_wifi_ssid() string`
+Queries host primary MAC address and connected Wi-Fi network SSID name.
+
 ```v
+import netutils
+
+mac := netutils.get_mac_address()
+ssid := netutils.get_wifi_ssid()
+println('MAC: ${mac} | Wi-Fi: ${ssid}')
+```
+
+### `get_dns_servers() []string` & `get_default_gateway() string`
+Returns configured DNS nameserver IPs and primary gateway IP.
+
+```v
+import netutils
+
 dns := netutils.get_dns_servers()
-```
-
-### `ping_tcp_port(host string, port int, timeout_ms int) bool`
-Checks if a TCP service is listening and reachable on the given host and port.
-```v
-is_up := netutils.ping_tcp_port('google.com', 443, 1000)
+gateway := netutils.get_default_gateway()
+println('DNS: ${dns} | Gateway: ${gateway}')
 ```
 
 ### `get_listening_ports() []int`
-Discovers open TCP listening ports on the local machine.
+Scans and discovers currently listening TCP ports on the machine.
+
 ```v
+import netutils
+
 ports := netutils.get_listening_ports()
+println('Active listening ports: ${ports}')
 ```
 
 ---
@@ -2051,42 +2629,41 @@ Import statement:
 import validutils
 ```
 
-### `validate_email(email string) bool`
-Validates email address syntax according to RFC mailbox standards.
-```v
-valid := validutils.validate_email('developer@example.com') // true
-```
+### Fast Data Validators
+All validators return boolean true/false for instant conditional checks.
 
-### `validate_url(url string) bool`
-Checks whether a string is a valid HTTP/HTTPS URL.
 ```v
-valid := validutils.validate_url('https://vlang.io') // true
-```
+import validutils
 
-### `validate_ip(ip string) bool`
-Validates IPv4 or IPv6 address strings.
-```v
-v4 := validutils.validate_ip('192.168.0.1') // true
-v6 := validutils.validate_ip('::1')          // true
-```
+// Email validation (RFC standard)
+valid_email := validutils.validate_email('developer@domain.com') // true
+bad_email   := validutils.validate_email('invalid..email@')       // false
 
-### `validate_uuid(uuid_str string) bool`
-Validates RFC 4122 standard UUID strings.
-```v
-valid := validutils.validate_uuid('123e4567-e89b-12d3-a456-426614174000') // true
-```
+// Web URL validation
+valid_url := validutils.validate_url('https://vlang.io/docs') // true
+bad_url   := validutils.validate_url('ftp://bad url')         // false
 
-### `validate_json(s string) bool`
-Validates whether a string is syntactically valid JSON.
-```v
-valid := validutils.validate_json('{"key": "value"}') // true
-```
+// IPv4 and IPv6 addresses
+v4_ok := validutils.validate_ip('192.168.1.1') // true
+v6_ok := validutils.validate_ip('::1')         // true
 
-### `validate_alphanumeric(s string) bool` & `validate_numeric_range(n f64, min f64, max f64) bool`
-Validates character sets and numeric constraints.
-```v
-alpha := validutils.validate_alphanumeric('Username123') // true
-in_range := validutils.validate_numeric_range(25.0, 10.0, 50.0) // true
+// International and standard phone numbers
+phone_ok := validutils.validate_phone('+1-800-555-0199') // true
+
+// Alphanumeric checks
+user_ok := validutils.validate_alphanumeric('AdminUser42') // true
+
+// Numeric ranges
+range_ok := validutils.validate_numeric_range(25.0, 18.0, 65.0) // true
+
+// String length constraints
+len_ok := validutils.validate_length('my_password', 8, 32) // true
+
+// RFC 4122 UUID format
+uuid_ok := validutils.validate_uuid('e74a81d1-4db5-4b06-a077-80f0c0576395') // true
+
+// JSON syntax validation
+json_ok := validutils.validate_json('{"status": "ok", "code": 200}') // true
 ```
 
 ---
@@ -2098,42 +2675,76 @@ Import statement:
 import structutils
 ```
 
-### Generic Stack (LIFO): `SimpleStack[T]`
+### Generic Stack: `SimpleStack[T]` (LIFO)
+Fast, thread-safe generic Last-In-First-Out stack.
+
 ```v
+import structutils
+
 mut stack := structutils.new_stack[string]()
-stack.push('alpha')
-stack.push('beta')
-top := stack.pop() // 'beta'
-len := stack.len() // 1
+stack.push('first')
+stack.push('second')
+stack.push('third')
+
+println('Top: ${stack.peek() or { "" }}') // "third"
+item := stack.pop() or { '' }             // "third"
+println('Popped: ${item}, Remaining: ${stack.len()}')
+
+items := stack.to_array() // ['first', 'second']
+stack.clear()
+println('Is empty: ${stack.is_empty()}') // true
 ```
 
-### Generic Queue (FIFO): `SimpleQueue[T]`
+### Generic Queue: `SimpleQueue[T]` (FIFO)
+Generic First-In-First-Out queue.
+
 ```v
+import structutils
+
 mut queue := structutils.new_queue[int]()
 queue.push(10)
 queue.push(20)
-first := queue.pop() // 10
+queue.push(30)
+
+first := queue.pop() or { 0 } // 10
+println('First out: ${first}')
+println('Next up: ${queue.peek() or { 0 }}') // 20
 ```
 
 ### Circular Ring Buffer: `SimpleRingBuffer[T]`
-Fixed-capacity buffer that automatically overwrites oldest items when full.
+Fixed-capacity circular buffer that automatically drops the oldest item when capacity is exceeded.
+
 ```v
+import structutils
+
 mut ring := structutils.new_ring_buffer[string](3)
-ring.push('a')
-ring.push('b')
-ring.push('c')
-ring.push('d') // 'a' is discarded
-items := ring.to_array() // ['b', 'c', 'd']
+ring.push('log_1')
+ring.push('log_2')
+ring.push('log_3')
+println('Is ring buffer full: ${ring.is_full()}') // true
+
+ring.push('log_4') // automatically overwrites 'log_1'
+
+// Contents: ['log_2', 'log_3', 'log_4']
+println('Recent logs: ${ring.to_array()}')
+oldest := ring.pop() or { '' } // "log_2"
 ```
 
-### Min-Heap Priority Queue: `SimpleMinHeap`
-Binary min-heap where lowest values are popped first.
+### Priority Queue: `SimpleMinHeap`
+Binary min-heap where lowest numerical values are popped with highest priority.
+
 ```v
+import structutils
+
 mut heap := structutils.new_min_heap()
 heap.push(50.0)
-heap.push(10.0)
-heap.push(30.0)
-smallest := heap.pop() // 10.0
+heap.push(12.5)
+heap.push(3.0)
+heap.push(25.0)
+
+println('Smallest: ${heap.peek() or { 0.0 }}') // 3.0
+val1 := heap.pop() or { 0.0 } // 3.0
+val2 := heap.pop() or { 0.0 } // 12.5
 ```
 
 ---
@@ -2145,37 +2756,193 @@ Import statement:
 import statutils
 ```
 
-### `stats_mean(arr []f64) f64` & `stats_median(arr []f64) f64`
-Calculates arithmetic mean and median.
+High-performance statistical analysis, distribution modeling, regression, and data profiling operating directly on `[]f64` numeric slices.
+
+---
+
+### 1. Measures of Central Tendency
+
 ```v
-data := [10.0, 20.0, 30.0, 40.0, 50.0]
-avg := statutils.stats_mean(data)     // 30.0
-med := statutils.stats_median(data)   // 30.0
+import statutils
+
+dataset := [10.0, 20.0, 20.0, 30.0, 40.0, 50.0, 90.0]
+
+// Arithmetic Sum & Mean
+total := statutils.stats_sum(dataset)                 // 260.00
+mean := statutils.stats_mean(dataset)                 // 37.14
+
+// Median & Mode
+median := statutils.stats_median(dataset)             // 30.00
+mode := statutils.stats_mode(dataset) or { 0.0 }      // 20.00
+
+// Specialized Means
+geom_mean := statutils.stats_geometric_mean([2.0, 8.0])      // 4.00
+harm_mean := statutils.stats_harmonic_mean([1.0, 2.0, 4.0])  // 1.714
+rms := statutils.stats_rms([3.0, 4.0])                       // 3.535
+
+// Weighted Mean
+weights := [1.0, 2.0, 3.0, 1.0, 2.0, 1.0, 1.0]
+w_mean := statutils.stats_weighted_mean(dataset, weights)!
+
+// Trimmed Mean (discards 10% from lower and upper bounds)
+t_mean := statutils.stats_trimmed_mean(dataset, 0.1)!
 ```
 
-### `stats_mode(arr []f64) ?f64`
-Finds the most frequent value.
+---
+
+### 2. Measures of Dispersion & Spread
+
 ```v
-mode := statutils.stats_mode([1.0, 2.0, 2.0, 3.0]) // 2.0
+import statutils
+
+dataset := [10.0, 20.0, 20.0, 30.0, 40.0, 50.0, 90.0]
+
+// Min, Max & Range
+min_val := statutils.stats_min(dataset) or { 0.0 }    // 10.00
+max_val := statutils.stats_max(dataset) or { 0.0 }    // 90.00
+span := statutils.stats_range(dataset)                // 80.00
+
+// Population Variance & Standard Deviation (N)
+pop_var := statutils.stats_variance(dataset)
+pop_std := statutils.stats_std_dev(dataset)
+
+// Sample Variance & Sample Standard Deviation (N - 1, Bessel's Correction)
+sample_var := statutils.stats_sample_variance(dataset)
+sample_std := statutils.stats_sample_std_dev(dataset)
+
+// Standard Error of the Mean (SEM = sample_std / sqrt(N))
+sem := statutils.stats_standard_error(dataset)
+
+// Quantiles & Interquartile Range
+p50 := statutils.stats_percentile(dataset, 50.0)      // 30.00
+p95 := statutils.stats_percentile(dataset, 95.0)      // 78.00
+q1, q2, q3 := statutils.stats_quartiles(dataset)      // Q1 (25%), Q2 (50%), Q3 (75%)
+iqr := statutils.stats_iqr(dataset)                   // Q3 - Q1
+
+// Relative Dispersion
+cov := statutils.stats_coefficient_of_variation(dataset) // std_dev / mean
+mad := statutils.stats_median_abs_deviation(dataset)     // Median Absolute Deviation
 ```
 
-### `stats_variance(arr []f64) f64` & `stats_std_dev(arr []f64) f64`
-Computes population variance and standard deviation.
+---
+
+### 3. Distribution Shape (Higher Moments)
+
 ```v
-sd := statutils.stats_std_dev(data)
+import statutils
+
+dataset := [10.0, 20.0, 20.0, 30.0, 40.0, 50.0, 90.0]
+
+// Skewness: measures distribution asymmetry (0 = symmetric, >0 right-skewed, <0 left-skewed)
+skew := statutils.stats_skewness(dataset)
+
+// Excess Kurtosis: measures tailedness relative to normal distribution (0 = normal, >0 leptokurtic)
+kurt := statutils.stats_kurtosis(dataset)
 ```
 
-### `stats_percentile(arr []f64, p f64) f64`
-Calculates any percentile (0.0 to 100.0) using linear interpolation.
+---
+
+### 4. Bivariate Analysis: Correlation & Linear Regression
+
 ```v
-p95 := statutils.stats_percentile(data, 95.0)
+import statutils
+
+x := [1.0, 2.0, 3.0, 4.0, 5.0]
+y := [2.1, 4.0, 5.9, 8.1, 10.2]
+
+// Population and Sample Covariance
+cov := statutils.stats_covariance(x, y)!
+sample_cov := statutils.stats_sample_covariance(x, y)!
+
+// Pearson Linear Correlation Coefficient r (-1.0 to 1.0)
+pearson_r := statutils.stats_pearson_correlation(x, y)!
+
+// Spearman Rank Correlation Coefficient r_s
+spearman_r := statutils.stats_spearman_correlation(x, y)!
+
+// Ordinary Least Squares (OLS) Linear Regression: y = slope * x + intercept
+reg := statutils.stats_linear_regression(x, y)! // returns statutils.LinearRegressionResult
+println('Slope: ${reg.slope:.4f}')
+println('Intercept: ${reg.intercept:.4f}')
+println('R² (Coefficient of Determination): ${reg.r_squared:.4f}')
+println('Correlation: ${reg.correlation:.4f}')
 ```
 
-### `stats_geometric_mean(arr []f64) f64` & `stats_rms(arr []f64) f64`
-Computes geometric mean, harmonic mean, and root-mean-square (RMS).
+---
+
+### 5. Probability Distributions & Normalization
+
 ```v
-geom := statutils.stats_geometric_mean([2.0, 8.0]) // 4.0
-rms := statutils.stats_rms([3.0, 4.0])             // 3.535
+import statutils
+
+// Normal (Gaussian) Probability Density Function (PDF) & Cumulative Distribution (CDF)
+pdf := statutils.stats_normal_pdf(1.96, 0.0, 1.0) // Density at z = 1.96
+cdf := statutils.stats_normal_cdf(1.96, 0.0, 1.0) // ~0.975 (97.5% cumulative probability)
+
+// Z-Scores (Standardization)
+single_z := statutils.stats_z_score(15.0, 10.0, 2.5) // 2.0
+standardized_data := statutils.stats_z_scores([10.0, 20.0, 30.0])
+
+// Min-Max Normalization (scales values to [0.0, 1.0])
+normalized := statutils.stats_min_max_normalize([10.0, 20.0, 30.0]) // [0.0, 0.5, 1.0]
+```
+
+---
+
+### 6. Outlier Detection
+
+```v
+import statutils
+
+data := [10.0, 11.0, 11.5, 12.0, 10.5, 12.5, 105.0]
+
+// Detect outliers using Tukey's IQR Fences (multiplier typically 1.5)
+iqr_outliers := statutils.stats_outliers_iqr(data, 1.5)
+println('IQR Outliers: ${iqr_outliers}') // [105.0]
+
+// Detect outliers using Z-Score threshold (typically |z| > 3.0)
+z_outliers := statutils.stats_outliers_z_score(data, 3.0)
+println('Z Outliers: ${z_outliers}')
+```
+
+---
+
+### 7. Time Series & Smoothing
+
+```v
+import statutils
+
+series := [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+// Simple Moving Average (SMA) over window size
+sma := statutils.stats_moving_average(series, 3)!
+// Output: [2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+
+// Exponential Moving Average (EMA) with smoothing factor alpha
+ema := statutils.stats_exponential_moving_average(series, 0.3)!
+```
+
+---
+
+### 8. Comprehensive Summary Profile (`SummaryStats`)
+
+```v
+import statutils
+
+data := [12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 30.0, 45.0, 45.0, 50.0]
+
+// Single-call calculation of 17 descriptive statistical metrics
+summary := statutils.stats_summary(data) // returns statutils.SummaryStats
+println('Count:           ${summary.count}')
+println('Min / Max:       ${summary.min} / ${summary.max}')
+println('Range:           ${summary.range}')
+println('Sum:             ${summary.sum}')
+println('Mean / Median:   ${summary.mean:.2f} / ${summary.median:.2f}')
+println('Sample StdDev:   ${summary.sample_std_dev:.2f}')
+println('Std Error (SEM): ${summary.sem:.2f}')
+println('Quartiles:       Q1=${summary.q1:.2f}, Q3=${summary.q3:.2f}, IQR=${summary.iqr:.2f}')
+println('Skewness:        ${summary.skewness:.2f}')
+println('Excess Kurtosis: ${summary.kurtosis:.2f}')
 ```
 
 ---
@@ -2192,20 +2959,26 @@ import stateutils
 #### `get_app_dir(app_name string, loc StateLocation) string`
 Returns the OS-recommended directory for an application:
 - **macOS**: `~/Library/Application Support/<app_name>`
-- **Windows**: `%APPDATA%/<app_name>`
-- **Linux**: `$XDG_DATA_HOME/<app_name>` or `~/.local/share/<app_name>`
-Automatically creates the directory if it does not already exist.
+- **Windows**: `%APPDATA%\<app_name>`
+- **Linux / BSD**: `$XDG_DATA_HOME/<app_name>` (fallback `~/.local/share/<app_name>`)
+Automatically creates the directory structure if missing.
 
 ```v
+import stateutils
+
 data_dir := stateutils.get_app_dir('my_app', .data)
 config_dir := stateutils.get_app_dir('my_app', .config)
+println('App data dir: ${data_dir}')
 ```
 
 #### `get_state_path(app_name string, filename string, loc StateLocation) string`
 Resolves the complete absolute path for a state file in the recommended directory.
 
 ```v
+import stateutils
+
 path := stateutils.get_state_path('my_app', 'state.json', .data)
+println('State file path: ${path}')
 ```
 
 ---
@@ -2213,9 +2986,11 @@ path := stateutils.get_state_path('my_app', 'state.json', .data)
 ### Direct State Functions
 
 #### `save_app_state[T](app_name string, filename string, state T) !`
-Atomically serializes and persists a struct to disk without corrupting existing data if interrupted.
+Atomically serializes and persists a struct to disk without risk of file corruption if interrupted.
 
 ```v
+import stateutils
+
 struct UserPrefs {
     theme string
     sound bool
@@ -2228,20 +3003,27 @@ stateutils.save_app_state('my_app', 'prefs.json', UserPrefs{ theme: 'dark', soun
 Loads and deserializes a struct from the recommended app data path.
 
 ```v
+import stateutils
+
 prefs := stateutils.load_app_state[UserPrefs]('my_app', 'prefs.json')!
+println('Loaded theme: ${prefs.theme}')
 ```
 
 #### `load_app_state_or[T](app_name string, filename string, default_val T) T`
-Loads state if available, or gracefully falls back to `default_val`.
+Loads state if available, or gracefully falls back to `default_val` on error or missing file.
 
 ```v
+import stateutils
+
 prefs := stateutils.load_app_state_or('my_app', 'prefs.json', UserPrefs{ theme: 'system', sound: false })
 ```
 
 #### `app_state_exists(app_name string, filename string) bool` & `delete_app_state(app_name string, filename string) !`
-Checks for the presence of a state file or deletes it.
+Checks for the presence of a state file or removes it.
 
 ```v
+import stateutils
+
 if stateutils.app_state_exists('my_app', 'prefs.json') {
     stateutils.delete_app_state('my_app', 'prefs.json')!
 }
@@ -2251,41 +3033,49 @@ if stateutils.app_state_exists('my_app', 'prefs.json') {
 
 ### `AppStateStore[T]` - Managed Generic Store
 
-Manages memory state, atomic disk persistence, auto-saving, backups, and rollback.
+Manages in-memory state, atomic disk persistence, auto-saving, backups, and rollback. Created via `new_app_state` (default `state.json` in `.data`) or `new_app_state_with_file` for custom state filenames or `.config` locations.
 
 ```v
+import stateutils
+
 struct Settings {
 pub mut:
-    window_w int
-    window_h int
-    theme    string
+    window_w     int
+    window_h     int
+    theme        string
+    recent_files []string
 }
 
+// Default state store (state.json in OS data dir)
 mut store := stateutils.new_app_state[Settings]('my_app', Settings{
     window_w: 1280
     window_h: 720
     theme:    'dark'
 })
 
+// Or custom filename & directory location:
+mut custom_store := stateutils.new_app_state_with_file[Settings]('my_app', 'workspace.json', Settings{}, .config)!
+
 // Access current state
-w := store.get().window_w
+println('Window width: ${store.get().window_w}')
 
 // Modify state via updater callback
 store.update(fn (mut s Settings) {
     s.window_w = 1920
-    s.theme = 'nord'
+    s.theme = 'dracula'
+    s.recent_files << 'main.v'
 })!
 store.save()! // persists atomically
 
 // Backup & Rollback
-bak_file := store.backup()! // saves .bak
+bak_file := store.backup()! // saves ${path}.bak
 store.set(Settings{ window_w: 800, window_h: 600, theme: 'light' })!
 store.rollback()! // reverts from .bak
 
-// Auto-save mode
+// Auto-save mode (automatically persists whenever state changes)
 store.auto_save = true
 store.update(fn (mut s Settings) {
-    s.theme = 'dracula'
+    s.theme = 'solarized'
 })! // automatically saved to disk
 ```
 
@@ -2293,11 +3083,16 @@ store.update(fn (mut s Settings) {
 
 ### `KeyValueState` - Dynamic App State
 
-For apps that need schema-free configuration and preferences.
+For apps that need schema-free configuration and preferences. Created via `new_kv_state` or `new_kv_state_with_file`.
 
 ```v
+import stateutils
+
 mut kv := stateutils.new_kv_state('my_app')
 kv.auto_save = true
+
+// Or custom file/location:
+mut custom_kv := stateutils.new_kv_state_with_file('my_app', 'tokens.json', .config)!
 
 // Typed setters & getters with fallbacks
 kv.set_str('current_profile', 'guest')!
@@ -2308,13 +3103,18 @@ kv.set_f64('scale', 1.5)!
 profile := kv.get_str('current_profile', 'default')
 volume  := kv.get_int('volume', 100)
 notify  := kv.get_bool('notifications', false)
+scale   := kv.get_f64('scale', 1.0)
 
 // Management
-kv.has('volume') // true
+println('Has volume: ${kv.has("volume")}')
 kv.delete('scale')!
+keys := kv.keys()
+all_data := kv.all()
+
 kv.clear()!
-kv.reset()! // clears memory and removes file from disk
+kv.reset()! // clears memory and deletes state file from disk
 ```
+
 
 
 

@@ -1,10 +1,10 @@
 module httputils
 
-import json
 import net.http
 import net.urllib
 import os
 import time
+import json2
 
 // build_query_string converts a map of parameters into an encoded query string (e.g. "key=val&a=b").
 pub fn build_query_string(params map[string]string) string {
@@ -75,7 +75,7 @@ pub fn get_json[T](url string, headers map[string]string) !T {
 		req_headers['Accept'] = 'application/json'
 	}
 	body := get_text(url, req_headers) or { return err }
-	return json.decode(T, body)
+	return json2.decode[T](body)
 }
 
 // post_json sends an HTTP POST request with JSON encoded body, and decodes the JSON response into R.
@@ -87,9 +87,9 @@ pub fn post_json[T, R](url string, body T, headers map[string]string) !R {
 	if 'Accept' !in req_headers {
 		req_headers['Accept'] = 'application/json'
 	}
-	encoded_body := json.encode(body)
+	encoded_body := json2.encode(body)
 	res_body := post_text(url, encoded_body, req_headers) or { return err }
-	return json.decode(R, res_body)
+	return json2.decode[R](res_body)
 }
 
 // download_file downloads a remote file from url directly to dest_path on disk.

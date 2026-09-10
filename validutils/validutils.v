@@ -1,6 +1,6 @@
 module validutils
 
-import json
+import json2
 
 // validate_email verifies whether an email address adheres to standard mailbox format.
 pub fn validate_email(email string) bool {
@@ -160,12 +160,8 @@ pub fn validate_json(s string) bool {
 		&& !(trimmed.starts_with('[') && trimmed.ends_with(']')) {
 		return false
 	}
-	// Attempt decoding as raw map or array
-	_ = json.decode(map[string]string, trimmed) or {
-		_ = json.decode([]string, trimmed) or {
-			return false
-		}
-		return true
+	_ = json2.decode[json2.Any](trimmed) or {
+		return false
 	}
 	return true
 }

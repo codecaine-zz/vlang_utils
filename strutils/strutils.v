@@ -4,18 +4,7 @@ import rand
 import strings
 
 fn is_whitespace(r rune) bool {
-	return r == ` ` || r == `\t` || r == `\n` || r == `\r`
-}
-
-fn min3(a int, b int, c int) int {
-	mut m := a
-	if b < m {
-		m = b
-	}
-	if c < m {
-		m = c
-	}
-	return m
+	return u8(r).is_space() || r == `\t` || r == `\n` || r == `\r`
 }
 
 // to_snake_case converts a string (camelCase, PascalCase, kebab-case, or spaced) into snake_case.
@@ -96,33 +85,13 @@ pub fn to_pascal_case(s string) string {
 	return sb.str()
 }
 
-// to_title_case capitalizes the first letter of each word.
+// to_title_case capitalizes the first letter of each word using V's built-in title method.
 pub fn to_title_case(s string) string {
 	if s.len == 0 {
 		return ''
 	}
-	mut sb := strings.new_builder(s.len)
-	mut capitalize_next := true
-	for r in s.runes() {
-		if is_whitespace(r) || r == `_` || r == `-` {
-			sb.write_u8(` `)
-			capitalize_next = true
-		} else if capitalize_next {
-			if r >= `a` && r <= `z` {
-				sb.write_rune(r - 32)
-			} else {
-				sb.write_rune(r)
-			}
-			capitalize_next = false
-		} else {
-			if r >= `A` && r <= `Z` {
-				sb.write_rune(r + 32)
-			} else {
-				sb.write_rune(r)
-			}
-		}
-	}
-	return collapse_whitespace(sb.str())
+	normalized := s.replace('_', ' ').replace('-', ' ')
+	return collapse_whitespace(normalized.title())
 }
 
 // slugify converts a string into a URL-friendly slug.
@@ -178,10 +147,14 @@ pub fn truncate_words(s string, max_words int, suffix string) string {
 }
 
 // pad_left pads the left of s with fill until total width is reached.
+// Employs V's built-in string interpolation formatting when padding with spaces on ASCII strings.
 pub fn pad_left(s string, width int, pad_char string) string {
 	runes_len := s.runes().len
 	if runes_len >= width {
 		return s
+	}
+	if (pad_char == ' ' || pad_char == '') && s.is_pure_ascii() {
+		return '${s:(width)}'
 	}
 	needed := width - runes_len
 	fill := if pad_char.len > 0 { pad_char } else { ' ' }
@@ -189,10 +162,14 @@ pub fn pad_left(s string, width int, pad_char string) string {
 }
 
 // pad_right pads the right of s with fill until total width is reached.
+// Employs V's built-in string interpolation formatting when padding with spaces on ASCII strings.
 pub fn pad_right(s string, width int, pad_char string) string {
 	runes_len := s.runes().len
 	if runes_len >= width {
 		return s
+	}
+	if (pad_char == ' ' || pad_char == '') && s.is_pure_ascii() {
+		return '${s:-(width)}'
 	}
 	needed := width - runes_len
 	fill := if pad_char.len > 0 { pad_char } else { ' ' }
@@ -341,35 +318,9 @@ pub fn extract_between(s string, start_delim string, end_delim string) ?string {
 	return sub[..end_idx]
 }
 
-// levenshtein_distance computes the edit distance between two strings.
+// levenshtein_distance computes the edit distance between two strings using V's built-in algorithm.
 pub fn levenshtein_distance(a string, b string) int {
-	a_runes := a.runes()
-	b_runes := b.runes()
-	m := a_runes.len
-	n := b_runes.len
-	if m == 0 {
-		return n
-	}
-	if n == 0 {
-		return m
-	}
-	mut d := [][]int{len: m + 1, init: []int{len: n + 1}}
-	for i in 0 .. (m + 1) {
-		d[i][0] = i
-	}
-	for j in 0 .. (n + 1) {
-		d[0][j] = j
-	}
-	for i in 1 .. (m + 1) {
-		for j in 1 .. (n + 1) {
-			cost := if a_runes[i - 1] == b_runes[j - 1] { 0 } else { 1 }
-			del := d[i - 1][j] + 1
-			ins := d[i][j - 1] + 1
-			subst := d[i - 1][j - 1] + cost
-			d[i][j] = min3(del, ins, subst)
-		}
-	}
-	return d[m][n]
+	return strings.levenshtein_distance(a, b)
 }
 
 // similarity returns a similarity ratio between 0.0 (completely different) and 1.0 (identical).
