@@ -133,3 +133,16 @@ fn test_rad_visualizations() {
 	pnl := panel('Panel Title', 'Content')
 	assert pnl.contains('Panel Title')
 }
+
+fn test_clipboard() {
+	if is_clipboard_available() {
+		original := read_from_clipboard()
+		test_msg := 'antigravity_vlang_utils_test'
+		if copy_to_clipboard(test_msg) {
+			pasted := read_from_clipboard()
+			assert pasted == test_msg
+			copy_to_clipboard(original)
+		}
+	}
+}
+

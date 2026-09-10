@@ -4231,3 +4231,422 @@ for u in test_users {
 ```
 
 
+
+
+---
+
+# logutils API
+
+Import statement:
+```v
+import logutils
+```
+
+### `LoggerConfig` & `Logger`
+Configures structured, level-filtered logging to console and disk.
+
+- `LogLevel`: `.debug`, `.info`, `.warn`, `.error`, `.fatal`
+- `LogOutput`: `.console`, `.file`, `.both`
+- `new_logger(cfg LoggerConfig) Logger`
+- `set_level(level LogLevel)`
+- `set_file(path string)`
+- `format_message(level LogLevel, msg string, now time.Time, colored bool) string`
+- `debug(msg string)`, `info(msg string)`, `warn(msg string)`, `error(msg string)`, `fatal(msg string)`
+
+```v
+import logutils
+
+mut logger := logutils.new_logger(
+    level: .info
+    output: .both
+    file_path: 'app.log'
+    use_color: true
+    show_timestamp: true
+)
+
+logger.set_level(.debug)
+logger.set_file('custom_app.log')
+logger.info('Application service initialized')
+logger.warn('Elevated cache memory usage detected')
+logger.error('Database connection timeout')
+logger.fatal('Fatal startup panic averted')
+```
+
+---
+
+# tomlutils API
+
+Import statement:
+```v
+import tomlutils
+```
+
+### `TomlDoc` & Parsing Functions
+High-level querying and configuration loading for TOML documents.
+
+- `parse(text string) !TomlDoc`
+- `parse_file(path string) !TomlDoc`
+- `has(key string) bool`
+- `get_string(key string, default_val string) string`
+- `get_int(key string, default_val int) int`
+- `get_i64(key string, default_val i64) i64`
+- `get_bool(key string, default_val bool) bool`
+- `get_f64(key string, default_val f64) f64`
+- `get_strings(key string) []string`
+- `get_ints(key string) []int`
+
+```v
+import tomlutils
+
+toml_text := '
+title = "Config Demo"
+[database]
+server = "127.0.0.1"
+port = 5432
+max_conn = 10000000000
+enabled = true
+ports = [ 8080, 8081 ]
+tags = [ "prod", "db" ]
+'
+
+doc := tomlutils.parse(toml_text) or { panic(err) }
+file_doc := tomlutils.parse_file('config.toml') or { doc }
+
+title := doc.get_string('title', 'untitled')
+server := doc.get_string('database.server', 'localhost')
+port := doc.get_int('database.port', 5432)
+max_conn := doc.get_i64('database.max_conn', 0)
+enabled := doc.get_bool('database.enabled', false)
+
+ports := doc.get_ints('database.ports')
+tags := doc.get_strings('database.tags')
+println('${title}: ${server}:${port}, max=${max_conn}, tags=${tags}')
+```
+
+---
+
+# htmlutils API
+
+Import statement:
+```v
+import htmlutils
+```
+
+### `HtmlDoc`, `HtmlNode`, & HTML Manipulation
+DOM querying, text extraction, escaping, unescaping, and tag stripping.
+
+- `HtmlNode`: `tag string`, `id string`, `classes []string`, `attributes map[string]string`, `text string`
+- `HtmlDoc`: wrapper around parsed HTML DOM
+- `parse(content string) HtmlDoc`
+- `parse_file(path string) !HtmlDoc`
+- `get_element_by_id(id string) ?HtmlNode`
+- `get_elements_by_tag(tag string) []HtmlNode`
+- `get_elements_by_class(class_name string) []HtmlNode`
+- `title() string`
+- `escape_html(s string) string`
+- `unescape_html(s string) string`
+- `strip_tags(s string) string`
+
+```v
+import htmlutils
+
+raw_html := '<!DOCTYPE html><html><head><title>Test Page</title></head><body><h1 id="main-heading" class="title primary">Welcome</h1><p class="desc">V is fast</p></body></html>'
+
+mut doc := htmlutils.parse(raw_html)
+file_doc := htmlutils.parse_file('page.html') or { doc }
+
+page_title := doc.title()
+h1 := doc.get_element_by_id('main-heading') or { panic('missing') }
+println('Header: ${h1.text}, Classes: ${h1.classes}')
+
+paragraphs := doc.get_elements_by_class('desc')
+divs := doc.get_elements_by_tag('p')
+
+escaped := htmlutils.escape_html('<div class="box">Hello & "world"</div>')
+unescaped := htmlutils.unescape_html(escaped)
+plain := htmlutils.strip_tags('<b>Bold</b> and <i>Italic</i>')
+println(plain) // "Bold and Italic"
+```
+
+---
+
+# bitutils API
+
+Import statement:
+```v
+import bitutils
+```
+
+### `BitSet` & Bitwise Arithmetic
+Compact boolean bit manipulation, Hamming weight (popcount), and flag bitmasks.
+
+- `new_bitset(size int) BitSet`
+- `from_binary_string(s string) !BitSet`
+- `set(index int)`, `clear(index int)`, `toggle(index int)`, `get(index int) bool`
+- `size() int`, `count_set() int`, `str() string`
+- `and_op(other BitSet) BitSet`, `or_op(other BitSet) BitSet`, `xor_op(other BitSet) BitSet`, `not_op() BitSet`
+- `popcount(n u64) int`
+- `to_binary(n u64, min_bits int) string`
+- `from_binary(s string) !u64`
+- `has_flag(flags u64, flag u64) bool`, `set_flag(flags u64, flag u64) u64`, `clear_flag(flags u64, flag u64) u64`, `toggle_flag(flags u64, flag u64) u64`
+
+```v
+import bitutils
+
+mut bs := bitutils.new_bitset(16)
+bs.set(0)
+bs.set(5)
+bs.toggle(5)
+is_set := bs.get(0) // true
+count := bs.count_set() // 1
+
+mut b1 := bitutils.from_binary_string('1100') or { panic(err) }
+mut b2 := bitutils.from_binary_string('1010') or { panic(err) }
+
+and_res := b1.and_op(b2)
+or_res := b1.or_op(b2)
+xor_res := b1.xor_op(b2)
+not_res := b1.not_op()
+
+ones := bitutils.popcount(0b1011001) // 4
+bin_str := bitutils.to_binary(42, 8)  // "00101010"
+num := bitutils.from_binary('00101010') or { 0 } // 42
+
+flag_read := u64(1)
+flag_write := u64(2)
+mut perms := bitutils.set_flag(0, flag_read)
+perms = bitutils.set_flag(perms, flag_write)
+can_read := bitutils.has_flag(perms, flag_read) // true
+perms = bitutils.clear_flag(perms, flag_read)
+perms = bitutils.toggle_flag(perms, flag_write)
+```
+
+---
+
+# compressutils API
+
+Import statement:
+```v
+import compressutils
+```
+
+### Multi-Codec Compression (Gzip, Zlib, Deflate, Zstandard)
+Byte slice and string compression and decompression across all major standard compression codecs.
+
+- `gzip_compress(data []u8) ![]u8`, `gzip_decompress(data []u8) ![]u8`
+- `gzip_compress_string(text string) ![]u8`, `gzip_decompress_string(data []u8) !string`
+- `zlib_compress(data []u8) ![]u8`, `zlib_decompress(data []u8) ![]u8`
+- `zlib_compress_string(text string) ![]u8`, `zlib_decompress_string(data []u8) !string`
+- `deflate_compress(data []u8) ![]u8`, `deflate_decompress(data []u8) ![]u8`
+- `deflate_compress_string(text string) ![]u8`, `deflate_decompress_string(data []u8) !string`
+- `zstd_compress(data []u8) ![]u8`, `zstd_decompress(data []u8) ![]u8`
+- `zstd_compress_string(text string) ![]u8`, `zstd_decompress_string(data []u8) !string`
+- `zstd_version() string`
+- `compress(algo CompressionAlgorithm, data []u8) ![]u8`
+- `decompress(algo CompressionAlgorithm, data []u8) ![]u8`
+- `compression_ratio(original_len int, compressed_len int) f64`
+
+```v
+import compressutils
+
+payload := 'Vlang utilities unified compression and decompression across formats.'
+
+// Gzip
+gz_bytes := compressutils.gzip_compress_string(payload) or { panic(err) }
+gz_raw := compressutils.gzip_compress(payload.bytes()) or { panic(err) }
+gz_dec_bytes := compressutils.gzip_decompress(gz_raw) or { panic(err) }
+gz_text := compressutils.gzip_decompress_string(gz_bytes) or { panic(err) }
+
+// Zlib
+zl_bytes := compressutils.zlib_compress_string(payload) or { panic(err) }
+zl_raw := compressutils.zlib_compress(payload.bytes()) or { panic(err) }
+zl_dec_bytes := compressutils.zlib_decompress(zl_raw) or { panic(err) }
+zl_text := compressutils.zlib_decompress_string(zl_bytes) or { panic(err) }
+
+// Deflate
+df_bytes := compressutils.deflate_compress_string(payload) or { panic(err) }
+df_raw := compressutils.deflate_compress(payload.bytes()) or { panic(err) }
+df_dec_bytes := compressutils.deflate_decompress(df_raw) or { panic(err) }
+df_text := compressutils.deflate_decompress_string(df_bytes) or { panic(err) }
+
+// Zstandard
+zstd_v := compressutils.zstd_version()
+zs_bytes := compressutils.zstd_compress_string(payload) or { panic(err) }
+zs_raw := compressutils.zstd_compress(payload.bytes()) or { panic(err) }
+zs_dec_bytes := compressutils.zstd_decompress(zs_raw) or { panic(err) }
+zs_text := compressutils.zstd_decompress_string(zs_bytes) or { panic(err) }
+
+// Unified dispatcher & ratio
+uni_c := compressutils.compress(.zstd, payload.bytes()) or { panic(err) }
+uni_d := compressutils.decompress(.zstd, uni_c) or { panic(err) }
+ratio := compressutils.compression_ratio(payload.len, uni_c.len)
+println('Zstandard version: ${zstd_v}, ratio: ${ratio:.1f}%')
+```
+
+---
+
+# tarutils API
+
+Import statement:
+```v
+import tarutils
+```
+
+### POSIX ustar TAR Archive Management
+Creating, packing, inspecting, and extracting  archives in pure V.
+
+- `TarEntry`: `name string`, `size int`, `is_dir bool`, `data []u8`
+- `pack_bytes(entries []TarEntry) []u8`
+- `unpack_bytes(data []u8) ![]TarEntry`
+- `create_tar(tar_path string, file_paths []string) !bool`
+- `list_tar_entries(tar_path string) ![]TarEntry`
+- `extract_tar(tar_path string, dest_dir string) !bool`
+- `read_tar_file(tar_path string, filename string) !string`
+
+```v
+import tarutils
+
+// In-memory TAR packing and unpacking
+entries := [
+    tarutils.TarEntry{ name: 'hello.txt', size: 12, is_dir: false, data: 'Hello World!'.bytes() },
+    tarutils.TarEntry{ name: 'folder', size: 0, is_dir: true, data: []u8{} }
+]
+tar_bytes := tarutils.pack_bytes(entries)
+unpacked := tarutils.unpack_bytes(tar_bytes) or { panic(err) }
+
+// Disk TAR archive creation and extraction
+tarutils.create_tar('backup.tar', ['file1.txt', 'file2.txt']) or { panic(err) }
+files_in_tar := tarutils.list_tar_entries('backup.tar') or { panic(err) }
+content := tarutils.read_tar_file('backup.tar', 'file1.txt') or { '' }
+tarutils.extract_tar('backup.tar', './output_dir') or { panic(err) }
+```
+
+---
+
+# Advanced Additions & Enhancements
+
+### `cliutils` Clipboard Functions
+```v
+import cliutils
+
+if cliutils.is_clipboard_available() {
+    cliutils.copy_to_clipboard('Copied to system clipboard')
+    text := cliutils.read_from_clipboard()
+    println(text)
+}
+```
+
+### `cryptoutils` Advanced Cryptography
+```v
+import cryptoutils
+
+// Symmetric AES-CBC (with PKCS7 padding)
+key := cryptoutils.secure_random_bytes(32) or { panic(err) }
+iv := cryptoutils.secure_random_bytes(16) or { panic(err) }
+ciphertext := cryptoutils.aes_encrypt_string(key, iv, 'Secret Payload') or { panic(err) }
+raw_cipher := cryptoutils.aes_encrypt_cbc(key, iv, 'Secret Payload'.bytes()) or { panic(err) }
+raw_dec := cryptoutils.aes_decrypt_cbc(key, iv, raw_cipher) or { panic(err) }
+decrypted := cryptoutils.aes_decrypt_string(key, iv, ciphertext) or { panic(err) }
+
+// Password hashing with Bcrypt
+hash := cryptoutils.bcrypt_hash('user_password') or { panic(err) }
+ok := cryptoutils.bcrypt_verify('user_password', hash)
+
+// Secure Entropy
+random_hex := cryptoutils.secure_random_hex(16) or { '' }
+
+// Fast non-cryptographic hashes
+f32 := cryptoutils.fnv1a_32('string to hash')
+c32 := cryptoutils.crc32_hash('string to hash')
+
+// Asymmetric Ed25519 digital signatures
+pub_k, priv_k := cryptoutils.generate_ed25519_keypair() or { panic(err) }
+sig := cryptoutils.ed25519_sign(priv_k, 'message'.bytes()) or { panic(err) }
+valid := cryptoutils.ed25519_verify(pub_k, 'message'.bytes(), sig)
+```
+
+### `netutils` Framed TCP & UDP
+```v
+import netutils
+import net
+
+// Framed TCP messages (4-byte length prefix to prevent fragmentation)
+mut conn := net.dial_tcp('127.0.0.1:9000') or { panic(err) }
+netutils.send_framed_msg(mut conn, 'Framed Payload'.bytes()) or { panic(err) }
+reply := netutils.read_framed_msg(mut conn, 8192) or { panic(err) }
+
+// UDP datagram transmission
+netutils.send_udp('127.0.0.1', 9001, 'UDP Packet'.bytes()) or { panic(err) }
+```
+
+### `structutils` Advanced Generic Collections (`GenericSet`, `BloomFilter`, `BinarySearchTree`, `SinglyLinkedList`, `DoublyLinkedList`)
+```v
+import structutils
+
+// GenericSet[T]
+mut s := structutils.new_set[string]()
+mut s_arr := structutils.new_set_from_array(['a', 'b', 'c'])
+s.add('first')
+s.add_all(['second', 'third'])
+has_val := s.contains('first')
+arr := s.to_array()
+var_set := structutils.GenericSet[string]{ set: s.set }
+
+// BloomFilter
+mut bf := structutils.new_bloom_filter(64, 3) or { panic(err) }
+bf.add('item1')
+exists := bf.contains('item1')
+var_bf := structutils.BloomFilter{}
+
+// BinarySearchTree[T]
+mut bst := structutils.new_bstree[int]()
+bst.insert(10)
+bst.insert(5)
+bst.insert(15)
+sorted_order := bst.in_order()
+smallest := bst.min()
+largest := bst.max()
+var_bst := structutils.BinarySearchTree[int]{}
+
+// SinglyLinkedList[T]
+mut ll := structutils.new_linked_list[int]()
+ll.push(10)
+item := ll.pop()
+first_item := ll.shift()
+var_ll := structutils.SinglyLinkedList[int]{}
+
+// DoublyLinkedList[T]
+mut dll := structutils.new_doubly_linked_list[string]()
+dll.push_back('tail')
+dll.push_front('head')
+popped_tail := dll.pop_back()
+popped_head := dll.pop_front()
+var_dll := structutils.DoublyLinkedList[string]{}
+```
+
+### `sysutils` Runtime Info (`RuntimeInfo`) & Shell Piping
+```v
+import sysutils
+
+info := sysutils.runtime_system_info()
+println('OS: ${info.os_name}, Arch: ${info.arch}, CPUs: ${info.num_cpus}, 64bit: ${info.is_64bit}')
+var_rt := sysutils.RuntimeInfo{ os_name: 'macos', arch: 'arm64' }
+
+piped_output := sysutils.pipe_commands('echo "antigravity toolkit"', 'grep "antigravity"') or { '' }
+println(piped_output)
+```
+
+### `timeutils` Benchmarking Suite (`BenchmarkResult`)
+```v
+import timeutils
+
+res := timeutils.benchmark_fn('loop_benchmark', 1000, fn () {
+    mut sum := 0
+    for i in 0 .. 100 { sum += i }
+})
+println(res.str())
+println('Ops/Sec: ${res.ops_per_sec}')
+var_bm := timeutils.BenchmarkResult{ name: 'demo', iterations: 10 }
+```
+
+```

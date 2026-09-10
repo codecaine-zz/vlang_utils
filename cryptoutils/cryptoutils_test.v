@@ -51,3 +51,44 @@ fn test_uuid_v4() {
 	token := secure_token(16)
 	assert token.len == 32
 }
+
+fn test_aes_encryption() {
+	key := [u8(1), 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+		24, 25, 26, 27, 28, 29, 30, 31, 32]
+	iv := [u8(10), 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160]
+
+	plaintext := 'High level abstractions in V language'
+	cipher := aes_encrypt_string(key, iv, plaintext) or { panic(err) }
+	assert cipher.len > 0
+	assert cipher.len % 16 == 0
+
+	decrypted := aes_decrypt_string(key, iv, cipher) or { panic(err) }
+	assert decrypted == plaintext
+}
+
+fn test_bcrypt_and_entropy() {
+	pass := 'my_secure_p@ssw0rd'
+	hashed := bcrypt_hash(pass) or { panic(err) }
+	assert hashed.starts_with('$2')
+	assert bcrypt_verify(pass, hashed) == true
+	assert bcrypt_verify('wrong_pass', hashed) == false
+
+	bytes := secure_random_bytes(16) or { panic(err) }
+	assert bytes.len == 16
+	hex_token := secure_random_hex(16) or { panic(err) }
+	assert hex_token.len == 32
+}
+
+fn test_fast_hashes_and_ed25519() {
+	f := fnv1a_32('test payload')
+	assert f > 0
+
+	c := crc32_hash('test payload')
+	assert c > 0
+
+	pub_k, priv_k := generate_ed25519_keypair() or { panic(err) }
+	msg := 'signed message'.bytes()
+	sig := ed25519_sign(priv_k, msg) or { panic(err) }
+	assert ed25519_verify(pub_k, msg, sig) == true
+	assert ed25519_verify(pub_k, 'tampered'.bytes(), sig) == false
+}

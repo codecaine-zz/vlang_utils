@@ -84,3 +84,90 @@ fn test_min_heap() {
 	assert h.pop() or { 0.0 } == 99.0
 	assert h.is_empty()
 }
+
+fn test_generic_set() {
+	mut s := new_set_from_array(['apple', 'banana', 'cherry', 'apple'])
+	assert s.size() == 3
+	assert s.contains('banana') == true
+	assert s.contains('grape') == false
+
+	s.add('grape')
+	assert s.size() == 4
+	assert s.contains('grape') == true
+
+	s.remove('banana')
+	assert s.size() == 3
+	assert s.contains('banana') == false
+
+	arr := s.to_array()
+	assert arr.len == 3
+
+	s.clear()
+	assert s.is_empty()
+}
+
+fn test_bloom_filter() {
+	mut bf := new_bloom_filter(64, 3) or { panic(err) }
+	bf.add('antigravity')
+	bf.add('vlang')
+
+	assert bf.contains('antigravity') == true
+	assert bf.contains('vlang') == true
+	assert bf.contains('completely_unseen_token_xyz') == false
+}
+
+fn test_bstree() {
+	mut bst := new_bstree[int]()
+	assert bst.is_empty()
+
+	bst.insert(10)
+	bst.insert(5)
+	bst.insert(15)
+	bst.insert(3)
+	bst.insert(7)
+
+	assert bst.contains(7) == true
+	assert bst.contains(99) == false
+
+	assert bst.min() or { -1 } == 3
+	assert bst.max() or { -1 } == 15
+
+	order := bst.in_order()
+	assert order == [3, 5, 7, 10, 15]
+
+	bst.remove(3)
+	assert bst.contains(3) == false
+	assert bst.min() or { -1 } == 5
+}
+
+fn test_linked_lists() {
+	// Singly linked list
+	mut ll := new_linked_list[int]()
+	ll.push(10)
+	ll.push(20)
+	ll.push(30)
+	assert ll.len() == 3
+	assert ll.to_array() == [10, 20, 30]
+
+	shift1 := ll.shift() or { -1 }
+	assert shift1 == 10
+	assert ll.len() == 2
+
+	pop1 := ll.pop() or { -1 }
+	assert pop1 == 30
+	assert ll.len() == 1
+
+	// Doubly linked list
+	mut dll := new_doubly_linked_list[string]()
+	dll.push_back('center')
+	dll.push_front('head')
+	dll.push_back('tail')
+	assert dll.to_array() == ['head', 'center', 'tail']
+
+	pf := dll.pop_front() or { '' }
+	assert pf == 'head'
+
+	pb := dll.pop_back() or { '' }
+	assert pb == 'tail'
+	assert dll.to_array() == ['center']
+}

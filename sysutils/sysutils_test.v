@@ -73,3 +73,14 @@ fn test_clipboard() {
 	paste := get_clipboard_text() or { '' }
 	assert paste == test_msg
 }
+
+fn test_runtime_and_pipe() {
+	info := runtime_system_info()
+	assert info.os_name.len > 0
+	assert info.num_cpus > 0
+	assert info.arch.len > 0
+
+	piped := pipe_commands('echo "antigravity rocks"', 'grep "rocks"') or { panic(err) }
+	assert piped.contains('antigravity rocks')
+}
+

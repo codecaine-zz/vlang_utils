@@ -172,3 +172,61 @@ pub fn get_listening_ports() []int {
 	ports.sort()
 	return ports
 }
+
+// send_framed_msg writes a length-prefixed framed binary message using magic header MSG0.
+pub fn send_framed_msg(mut conn net.TcpConn, payload []u8) ! {
+	mut buf := []u8{len: 8 + payload.len}
+	buf[0] = `M`
+	buf[1] = `S`
+	buf[2] = `G`
+	buf[3] = `0`
+	buf[4] = u8((u32(payload.len) >> 24) & 0xff)
+	buf[5] = u8((u32(payload.len) >> 16) & 0xff)
+	buf[6] = u8((u32(payload.len) >> 8) & 0xff)
+	buf[7] = u8(u32(payload.len) & 0xff)
+	for i in 0 .. payload.len {
+		buf[8 + i] = payload[i]
+	}
+	conn.write(buf)!
+}
+
+fn read_exact(mut conn net.TcpConn, size int) ![]u8 {
+	mut data := []u8{len: size}
+	mut read_bytes := 0
+	for read_bytes < size {
+		remaining := size - read_bytes
+		chunk := if remaining > 512 { 512 } else { remaining }
+		n := conn.read(mut data[read_bytes..read_bytes + chunk])!
+		if n == 0 {
+			return error('unexpected end of stream')
+		}
+		read_bytes += n
+	}
+	return data
+}
+
+// read_framed_msg reads a length-prefixed framed message ensuring no partial packet fragmentation.
+pub fn read_framed_msg(mut conn net.TcpConn, max_size int) ![]u8 {
+	hdr := read_exact(mut conn, 8)!
+	if hdr[0] != `M` || hdr[1] != `S` || hdr[2] != `G` || hdr[3] != `0` {
+		return error('invalid protocol magic header')
+	}
+	len := int((u32(hdr[4]) << 24) | (u32(hdr[5]) << 16) | (u32(hdr[6]) << 8) | u32(hdr[7]))
+	if len > max_size {
+		return error('message length ${len} exceeds max size ${max_size}')
+	}
+	if len == 0 {
+		return []u8{}
+	}
+	return read_exact(mut conn, len)
+}
+
+// send_udp transmits a UDP packet to the given host and port.
+pub fn send_udp(host string, port int, data []u8) ! {
+	mut conn := net.dial_udp('${host}:${port}')!
+	defer {
+		conn.close() or {}
+	}
+	conn.write(data)!
+}
+

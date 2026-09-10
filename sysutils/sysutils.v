@@ -1,6 +1,7 @@
 module sysutils
 
 import os
+import runtime
 import strings
 import time
 
@@ -641,3 +642,44 @@ pub fn say(text string) ! {
 		}
 	}
 }
+
+// RuntimeInfo holds hardware, OS, and V runtime telemetry.
+pub struct RuntimeInfo {
+pub:
+	os_name          string
+	arch             string
+	num_cpus         int
+	is_64bit         bool
+	is_little_endian bool
+	total_memory_mb  u64
+	free_memory_mb   u64
+}
+
+// runtime_system_info queries the V runtime subsystem for machine and architecture statistics.
+pub fn runtime_system_info() RuntimeInfo {
+	total_mem := runtime.total_memory() or { 0 }
+	free_mem := runtime.free_memory() or { 0 }
+
+	arch := if runtime.is_64bit() { '64-bit' } else { '32-bit' }
+
+	return RuntimeInfo{
+		os_name: os.user_os()
+		arch: arch
+		num_cpus: runtime.nr_cpus()
+		is_64bit: runtime.is_64bit()
+		is_little_endian: runtime.is_little_endian()
+		total_memory_mb: u64(total_mem / (1024 * 1024))
+		free_memory_mb: u64(free_mem / (1024 * 1024))
+	}
+}
+
+// pipe_commands executes two commands connected via a shell pipe: cmd1 | cmd2.
+pub fn pipe_commands(cmd1 string, cmd2 string) !string {
+	full_cmd := '${cmd1} | ${cmd2}'
+	res := os.execute(full_cmd)
+	if res.exit_code != 0 {
+		return error('piped command failed with exit code ${res.exit_code}: ${res.output.trim_space()}')
+	}
+	return res.output.trim_space()
+}
+

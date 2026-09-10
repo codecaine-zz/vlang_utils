@@ -1,5 +1,7 @@
 module structutils
 
+import datatypes
+
 // ============================================================================
 // Generic Stack (LIFO)
 // ============================================================================
@@ -274,3 +276,243 @@ pub fn (h SimpleMinHeap) len() int {
 pub fn (h SimpleMinHeap) is_empty() bool {
 	return h.data.len == 0
 }
+
+// ============================================================================
+// Generic Set
+// ============================================================================
+
+// GenericSet represents a mathematical set of unique elements.
+pub struct GenericSet[T] {
+pub mut:
+	set datatypes.Set[T]
+}
+
+// new_set creates an empty GenericSet.
+pub fn new_set[T]() GenericSet[T] {
+	return GenericSet[T]{
+		set: datatypes.Set[T]{}
+	}
+}
+
+// new_set_from_array creates a GenericSet populated with elements from an array.
+pub fn new_set_from_array[T](items []T) GenericSet[T] {
+	mut s := new_set[T]()
+	s.add_all(items)
+	return s
+}
+
+// add inserts an item into the set.
+pub fn (mut s GenericSet[T]) add(item T) {
+	s.set.add(item)
+}
+
+// add_all inserts multiple items into the set.
+pub fn (mut s GenericSet[T]) add_all(items []T) {
+	s.set.add_all(items)
+}
+
+// remove deletes an item from the set.
+pub fn (mut s GenericSet[T]) remove(item T) {
+	s.set.remove(item)
+}
+
+// contains returns true if item is present in the set.
+pub fn (s GenericSet[T]) contains(item T) bool {
+	return s.set.exists(item)
+}
+
+// size returns the number of unique elements in the set.
+pub fn (s GenericSet[T]) size() int {
+	return s.set.size()
+}
+
+// is_empty returns whether the set contains zero elements.
+pub fn (s GenericSet[T]) is_empty() bool {
+	return s.set.is_empty()
+}
+
+// to_array returns all elements of the set as a slice.
+pub fn (s GenericSet[T]) to_array() []T {
+	return s.set.array()
+}
+
+// clear removes all elements from the set.
+pub fn (mut s GenericSet[T]) clear() {
+	s.set.clear()
+}
+
+// ============================================================================
+// Bloom Filter
+// ============================================================================
+
+fn hash_bloom_string(val string) u32 {
+	mut hash := u32(2166136261)
+	for ch in val {
+		hash ^= u32(ch)
+		hash *= 16777619
+	}
+	return hash
+}
+
+// BloomFilter provides fast probabilistic set membership testing.
+pub struct BloomFilter {
+mut:
+	bf datatypes.BloomFilter[string]
+}
+
+// new_bloom_filter creates a BloomFilter with bit capacity and hash function count.
+pub fn new_bloom_filter(size int, k int) !BloomFilter {
+	b := datatypes.new_bloom_filter[string](hash_bloom_string, size, k)!
+	return BloomFilter{
+		bf: b
+	}
+}
+
+// add inserts a string into the BloomFilter.
+pub fn (mut b BloomFilter) add(item string) {
+	b.bf.add(item)
+}
+
+// contains checks whether a string might be in the BloomFilter.
+pub fn (b BloomFilter) contains(item string) bool {
+	return b.bf.exists(item)
+}
+
+// ============================================================================
+// Binary Search Tree
+// ============================================================================
+
+// BinarySearchTree stores ordered values and provides fast lookup and traversal.
+pub struct BinarySearchTree[T] {
+mut:
+	bst datatypes.BSTree[T]
+}
+
+// new_bstree creates an empty BinarySearchTree.
+pub fn new_bstree[T]() BinarySearchTree[T] {
+	return BinarySearchTree[T]{
+		bst: datatypes.BSTree[T]{}
+	}
+}
+
+// insert adds an item to the BST.
+pub fn (mut b BinarySearchTree[T]) insert(item T) {
+	b.bst.insert(item)
+}
+
+// remove deletes an item from the BST.
+pub fn (mut b BinarySearchTree[T]) remove(item T) {
+	b.bst.remove(item)
+}
+
+// contains returns true if item is in the BST.
+pub fn (b BinarySearchTree[T]) contains(item T) bool {
+	return b.bst.contains(item)
+}
+
+// in_order returns a slice of elements in sorted ascending order.
+pub fn (b BinarySearchTree[T]) in_order() []T {
+	return b.bst.in_order_traversal()
+}
+
+// min returns the smallest value in the tree, or none if empty.
+pub fn (b BinarySearchTree[T]) min() ?T {
+	val := b.bst.min() or { return none }
+	return val
+}
+
+// max returns the largest value in the tree, or none if empty.
+pub fn (b BinarySearchTree[T]) max() ?T {
+	val := b.bst.max() or { return none }
+	return val
+}
+
+// is_empty returns whether the tree has no nodes.
+pub fn (b BinarySearchTree[T]) is_empty() bool {
+	return b.bst.is_empty()
+}
+
+// ============================================================================
+// Linked Lists
+// ============================================================================
+
+// SinglyLinkedList represents a singly-linked sequence of generic elements.
+pub struct SinglyLinkedList[T] {
+mut:
+	list datatypes.LinkedList[T]
+}
+
+// new_linked_list creates an empty SinglyLinkedList.
+pub fn new_linked_list[T]() SinglyLinkedList[T] {
+	return SinglyLinkedList[T]{
+		list: datatypes.LinkedList[T]{}
+	}
+}
+
+// push adds an item to the end of the list.
+pub fn (mut l SinglyLinkedList[T]) push(item T) {
+	l.list.push(item)
+}
+
+// pop removes and returns the last item from the list.
+pub fn (mut l SinglyLinkedList[T]) pop() ?T {
+	val := l.list.pop() or { return none }
+	return val
+}
+
+// shift removes and returns the first item from the list.
+pub fn (mut l SinglyLinkedList[T]) shift() ?T {
+	val := l.list.shift() or { return none }
+	return val
+}
+
+// to_array returns elements as a standard slice.
+pub fn (l SinglyLinkedList[T]) to_array() []T {
+	return l.list.array()
+}
+
+// len returns the count of items in the list.
+pub fn (l SinglyLinkedList[T]) len() int {
+	return l.list.len()
+}
+
+// DoublyLinkedList represents a doubly-linked list allowing bidirectional operations.
+pub struct DoublyLinkedList[T] {
+mut:
+	list datatypes.DoublyLinkedList[T]
+}
+
+// new_doubly_linked_list creates an empty DoublyLinkedList.
+pub fn new_doubly_linked_list[T]() DoublyLinkedList[T] {
+	return DoublyLinkedList[T]{
+		list: datatypes.DoublyLinkedList[T]{}
+	}
+}
+
+// push_back adds an item to the back of the doubly linked list.
+pub fn (mut d DoublyLinkedList[T]) push_back(item T) {
+	d.list.push_back(item)
+}
+
+// push_front adds an item to the front of the doubly linked list.
+pub fn (mut d DoublyLinkedList[T]) push_front(item T) {
+	d.list.push_front(item)
+}
+
+// pop_back removes and returns the last item from the list.
+pub fn (mut d DoublyLinkedList[T]) pop_back() ?T {
+	val := d.list.pop_back() or { return none }
+	return val
+}
+
+// pop_front removes and returns the first item from the list.
+pub fn (mut d DoublyLinkedList[T]) pop_front() ?T {
+	val := d.list.pop_front() or { return none }
+	return val
+}
+
+// to_array returns elements as a standard slice.
+pub fn (d DoublyLinkedList[T]) to_array() []T {
+	return d.list.array()
+}
+

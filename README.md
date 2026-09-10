@@ -30,6 +30,12 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`asyncutils`](#22-asyncutils) | Bounded concurrency primitives: order-preserving `parallel_map[T, R]`, `parallel_filter[T]`, `parallel_each[T]`, `WaitGroup`, and `WorkerPool`. |
 | [`regexutils`](#23-regexutils) | High-level regular expression helpers: `is_match`, `find_first`, `find_all`, `replace`, `split`, and `find_matches`. |
 | [`mockutils`](#24-mockutils) | Synthetic testing & prototyping data generation: `lorem_text`, `lorem_words`, `mock_user`, `mock_email`, `mock_phone`, `mock_ipv4`, `mock_url`. |
+| [`logutils`](#25-logutils) | Leveled structured logging (`LogLevel`, `Logger`, file/stdout targets, ANSI color highlighting). |
+| [`tomlutils`](#26-tomlutils) | TOML configuration file and string parsing with typed accessors (`get_string`, `get_int`, `get_bool`, `get_strings`). |
+| [`htmlutils`](#27-htmlutils) | HTML parsing, DOM navigation (`get_element_by_id`, `get_elements_by_tag`), entity escaping, and tag stripping. |
+| [`bitutils`](#28-bitutils) | Dynamic bitsets (`BitSet`), bitwise operations, popcount, binary string conversions, and bitmask flag manipulation. |
+| [`compressutils`](#29-compressutils) | Fast compression & decompression for Gzip, Zlib, Deflate, and Zstandard strings and byte buffers. |
+| [`tarutils`](#30-tarutils) | In-memory and on-disk TAR archive creation, unpacking, directory archiving, and tarball inspection. |
 
 ---
 
@@ -460,11 +466,87 @@ paragraph := mockutils.lorem_text(1, 3, 8)
 words := mockutils.lorem_words(6)
 ```
 
+### 25. `logutils`
+```v
+import logutils
+
+mut logger := logutils.new_logger(.info, .stdout)
+logger.info('Application started successfully')
+logger.warn('High memory usage detected')
+```
+
+### 26. `tomlutils`
+```v
+import tomlutils
+
+doc := tomlutils.parse('
+[server]
+port = 8080
+debug = true
+tags = ["api", "vlang"]
+')!
+
+port := doc.get_int('server.port', 3000)
+tags := doc.get_strings('server.tags')
+```
+
+### 27. `htmlutils`
+```v
+import htmlutils
+
+doc := htmlutils.parse('<div id="main" class="container"><a href="/docs">Docs</a></div>')!
+if link := doc.get_element_by_id('main') {
+    println(link.text)
+}
+escaped := htmlutils.escape_html('<script>alert("xss")</script>')
+```
+
+### 28. `bitutils`
+```v
+import bitutils
+
+mut bs := bitutils.new_bitset(64)
+bs.set(0)
+bs.set(5)
+is_set := bs.get(5) // true
+count := bs.count_set() // 2
+
+// Flag helpers
+mut flags := u32(0)
+flags = bitutils.set_flag(flags, 1 << 2)
+has_flag := bitutils.has_flag(flags, 1 << 2) // true
+```
+
+### 29. `compressutils`
+```v
+import compressutils
+
+data := 'V is simple, fast, safe, and compiled.'
+compressed := compressutils.gzip_compress_string(data)!
+restored := compressutils.gzip_decompress_string(compressed)!
+
+ratio := compressutils.compression_ratio(data.len, compressed.len)
+```
+
+### 30. `tarutils`
+```v
+import tarutils
+
+// Pack in-memory entries into tarball
+tar_bytes := tarutils.pack_bytes([
+    tarutils.TarEntry{ name: 'hello.txt', data: 'Hello Tar!'.bytes() }
+])!
+
+// Inspect and unpack
+entries := tarutils.unpack_bytes(tar_bytes)!
+println(entries[0].name) // "hello.txt"
+```
+
 ---
 
 ## Running the Demo
 
-To run the complete interactive demo showcasing all 24 modules:
+To run the complete interactive demo showcasing all 30 modules:
 
 ```bash
 v run main.v
@@ -480,5 +562,6 @@ v test .
 
 ## API Documentation
 
-For the complete API reference with comprehensive, runnable examples for all 540 public functions and structs, see [API.md](API.md).
+For the complete API reference with comprehensive, runnable examples for all 686 public functions and structs, see [API.md](API.md).
+
 

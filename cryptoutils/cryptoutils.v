@@ -1,11 +1,18 @@
 module cryptoutils
 
+import crypto.aes
+import crypto.bcrypt
+import crypto.cipher
+import crypto.ed25519
 import crypto.hmac
 import crypto.md5 as vmd5
+import crypto.rand as crand
 import crypto.sha256 as vsha256
 import crypto.sha512 as vsha512
 import encoding.base64
 import encoding.hex
+import hash.crc32
+import hash.fnv1a
 import rand
 
 // sha256 returns the hexadecimal SHA-256 hash of a string.
@@ -115,4 +122,126 @@ pub fn is_valid_uuid(s string) bool {
 		}
 	}
 	return true
+}
+
+fn pkcs7_pad(data []u8, block_size int) []u8 {
+	pad_len := block_size - (data.len % block_size)
+	mut res := data.clone()
+	for _ in 0 .. pad_len {
+		res << u8(pad_len)
+	}
+	return res
+}
+
+fn pkcs7_unpad(data []u8) ![]u8 {
+	if data.len == 0 {
+		return error('empty data')
+	}
+	pad_len := int(data.last())
+	if pad_len <= 0 || pad_len > 16 || pad_len > data.len {
+		return error('invalid padding')
+	}
+	for i in data.len - pad_len .. data.len {
+		if data[i] != u8(pad_len) {
+			return error('invalid padding sequence')
+		}
+	}
+	return data[..data.len - pad_len].clone()
+}
+
+// aes_encrypt_cbc encrypts arbitrary plaintext bytes with AES-CBC using PKCS7 padding.
+pub fn aes_encrypt_cbc(key []u8, iv []u8, plaintext []u8) ![]u8 {
+	if key.len != 16 && key.len != 24 && key.len != 32 {
+		return error('key must be 16, 24, or 32 bytes (AES-128, AES-192, AES-256)')
+	}
+	if iv.len != aes.block_size {
+		return error('IV must be ${aes.block_size} bytes')
+	}
+	padded := pkcs7_pad(plaintext, aes.block_size)
+	block := aes.new_cipher(key)!
+	mut enc := cipher.new_cbc(block, iv)
+	mut ciphertext := []u8{len: padded.len}
+	enc.encrypt_blocks(mut ciphertext, padded)
+	return ciphertext
+}
+
+// aes_decrypt_cbc decrypts AES-CBC ciphertext and removes PKCS7 padding.
+pub fn aes_decrypt_cbc(key []u8, iv []u8, ciphertext []u8) ![]u8 {
+	if key.len != 16 && key.len != 24 && key.len != 32 {
+		return error('key must be 16, 24, or 32 bytes')
+	}
+	if iv.len != aes.block_size {
+		return error('IV must be ${aes.block_size} bytes')
+	}
+	if ciphertext.len % aes.block_size != 0 || ciphertext.len == 0 {
+		return error('ciphertext length must be a non-zero multiple of ${aes.block_size}')
+	}
+	block := aes.new_cipher(key)!
+	mut dec := cipher.new_cbc(block, iv)
+	mut decrypted_padded := []u8{len: ciphertext.len}
+	dec.decrypt_blocks(mut decrypted_padded, ciphertext)
+	return pkcs7_unpad(decrypted_padded)!
+}
+
+// aes_encrypt_string encrypts a UTF-8 string with AES-CBC.
+pub fn aes_encrypt_string(key []u8, iv []u8, text string) ![]u8 {
+	return aes_encrypt_cbc(key, iv, text.bytes())!
+}
+
+// aes_decrypt_string decrypts ciphertext into a UTF-8 string.
+pub fn aes_decrypt_string(key []u8, iv []u8, ciphertext []u8) !string {
+	bytes := aes_decrypt_cbc(key, iv, ciphertext)!
+	return bytes.bytestr()
+}
+
+// bcrypt_hash computes a secure bcrypt password hash with the default work factor.
+pub fn bcrypt_hash(password string) !string {
+	return bcrypt.generate_from_password(password.bytes(), bcrypt.default_cost)!
+}
+
+// bcrypt_verify verifies whether a plaintext password matches a bcrypt hash.
+pub fn bcrypt_verify(password string, hash string) bool {
+	bcrypt.compare_hash_and_password(password.bytes(), hash.bytes()) or { return false }
+	return true
+}
+
+// secure_random_bytes generates cryptographically secure random bytes via crypto.rand.
+pub fn secure_random_bytes(count int) ![]u8 {
+	return crand.bytes(count)!
+}
+
+// secure_random_hex returns a cryptographically secure random hexadecimal string.
+pub fn secure_random_hex(count int) !string {
+	bytes := crand.bytes(count)!
+	return hex.encode(bytes)
+}
+
+// fnv1a_32 computes the 32-bit Fowler–Noll–Vo non-cryptographic hash of a string.
+pub fn fnv1a_32(s string) u32 {
+	return fnv1a.sum32_string(s)
+}
+
+// crc32_hash computes the CRC-32 checksum of a string.
+pub fn crc32_hash(s string) u32 {
+	return crc32.sum(s.bytes())
+}
+
+// generate_ed25519_keypair generates a public and private Ed25519 keypair as hex strings.
+pub fn generate_ed25519_keypair() !(string, string) {
+	pub_k, priv_k := ed25519.generate_key()!
+	return hex.encode(pub_k), hex.encode(priv_k)
+}
+
+// ed25519_sign signs a message byte slice using an Ed25519 private key hex string.
+pub fn ed25519_sign(priv_key_hex string, msg []u8) !string {
+	priv_bytes := hex.decode(priv_key_hex)!
+	sig := ed25519.sign(priv_bytes, msg)!
+	return hex.encode(sig)
+}
+
+// ed25519_verify verifies an Ed25519 signature hex string with a public key hex string.
+pub fn ed25519_verify(pub_key_hex string, msg []u8, sig_hex string) bool {
+	pub_bytes := hex.decode(pub_key_hex) or { return false }
+	sig_bytes := hex.decode(sig_hex) or { return false }
+	return ed25519.verify(pub_bytes, msg, sig_bytes) or { false }
 }

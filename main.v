@@ -25,6 +25,12 @@ import archiveutils
 import asyncutils
 import regexutils
 import mockutils
+import logutils
+import tomlutils
+import htmlutils
+import bitutils
+import compressutils
+import tarutils
 import time
 
 struct Person {
@@ -42,7 +48,7 @@ pub mut:
 
 fn main() {
 	println(cliutils.bold(cliutils.cyan('==================================================')))
-	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 24-Module Showcase      ')))
+	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 30-Module Showcase      ')))
 	println(cliutils.bold(cliutils.cyan('==================================================')))
 
 	// 1. FILEUTILS DEMO
@@ -73,6 +79,9 @@ fn main() {
 	// 2. SQLITEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('2. [sqliteutils] SQLite Ergonomics & KV/Doc Store:')))
 	sqlite_dir := '.sqliteutils_demo'
+	if os.exists(sqlite_dir) {
+		os.rmdir_all(sqlite_dir) or {}
+	}
 	db_path := '${sqlite_dir}/demo.db'
 	mut db := sqliteutils.open_db(db_path) or { panic(err) }
 	defer {
@@ -407,7 +416,67 @@ fn main() {
 	lorem_sample := mockutils.lorem_sentence()
 	println(' - Synthetic Lorem: "${lorem_sample}"')
 
-	println('\n' + cliutils.bold(cliutils.green('✔ All 24 modules in vlang_utils demonstrated successfully!')))
+	// 25. LOGUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('25. [logutils] Structured Logging & Multi-Target Dispatch:')))
+	log_demo := logutils.new_logger(
+		level: .info
+		output: .console
+		use_color: true
+		show_timestamp: true
+	)
+	log_demo.info('Application engine initialized')
+	log_demo.warn('System telemetry alert: disk nearing 80%')
+
+	// 26. TOMLUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('26. [tomlutils] TOML Parsing & Querying:')))
+	sample_toml := '
+	title = "Antigravity App"
+	[server]
+	host = "0.0.0.0"
+	port = 8080
+	enabled = true
+	'
+	toml_doc := tomlutils.parse(sample_toml) or { panic(err) }
+	println(' - TOML Config: title="${toml_doc.get_string('title', '')}", host=${toml_doc.get_string('server.host', '')}, port=${toml_doc.get_int('server.port', 0)}')
+
+	// 27. HTMLUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('27. [htmlutils] HTML Parsing, Queries & Sanitization:')))
+	sample_html := '<div id="container" class="card primary"><h1>Welcome to Vlang</h1><p>High-level utilities</p></div>'
+	mut html_doc := htmlutils.parse(sample_html)
+	container_node := html_doc.get_element_by_id('container') or { panic('missing container') }
+	println(' - HTML Element: tag=<${container_node.tag}>, id="${container_node.id}", classes=${container_node.classes}')
+	println(' - Stripped HTML: "${htmlutils.strip_tags(sample_html)}"')
+
+	// 28. BITUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('28. [bitutils] BitSet & Bitwise Flag Operations:')))
+	mut bs := bitutils.new_bitset(8)
+	bs.set(0)
+	bs.set(3)
+	bs.set(7)
+	println(' - BitSet: ${bs.str()}, count_set=${bs.count_set()}, bit 3=${bs.get(3)}')
+	flag_rw := bitutils.set_flag(u64(1), u64(2))
+	println(' - Popcount(42): ${bitutils.popcount(42)}, Binary: "${bitutils.to_binary(42, 8)}", Has flag: ${bitutils.has_flag(flag_rw, 1)}')
+
+	// 29. COMPRESSUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('29. [compressutils] Multi-Algorithm Compression (Gzip, Zlib, Deflate, Zstd):')))
+	sample_payload := 'V is a statically typed compiled programming language designed for building maintainable software. ' +
+		'It provides fast compilation, high performance, safety, and a clean minimalist syntax.'
+	gz_c := compressutils.gzip_compress_string(sample_payload) or { panic(err) }
+	zs_c := compressutils.zstd_compress_string(sample_payload) or { panic(err) }
+	println(' - Original: ${sample_payload.len} B | Gzip: ${gz_c.len} B (${compressutils.compression_ratio(sample_payload.len, gz_c.len):.1f}% saved) | Zstd: ${zs_c.len} B (${compressutils.compression_ratio(sample_payload.len, zs_c.len):.1f}% saved)')
+
+	// 30. TARUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('30. [tarutils] POSIX ustar TAR Archive Packing & Unpacking:')))
+	tar_entries := [
+		tarutils.TarEntry{ name: 'manifest.txt', size: 19, is_dir: false, data: 'vlang_utils bundle'.bytes() },
+		tarutils.TarEntry{ name: 'docs', size: 0, is_dir: true, data: []u8{} }
+	]
+	packed_tar := tarutils.pack_bytes(tar_entries)
+	unpacked_tar := tarutils.unpack_bytes(packed_tar) or { panic(err) }
+	println(' - Packed TAR: ${packed_tar.len} B, Unpacked: ${unpacked_tar.len} entries (first="${unpacked_tar[0].name}", text="${unpacked_tar[0].data.bytestr()}")')
+
+	println('\n' + cliutils.bold(cliutils.green('✔ All 30 modules in vlang_utils demonstrated successfully!')))
 }
+
 
 

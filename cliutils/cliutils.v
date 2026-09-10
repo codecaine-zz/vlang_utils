@@ -1,5 +1,6 @@
 module cliutils
 
+import clipboard
 import os
 import strings
 import time
@@ -649,3 +650,37 @@ pub fn divider(ch rune, width int) string {
 pub fn badge(label string, value string, color_fn fn (string) string) string {
 	return color_fn('[ ${label}: ${value} ]')
 }
+
+// is_clipboard_available returns true if the system clipboard is accessible.
+pub fn is_clipboard_available() bool {
+	mut cb := clipboard.new()
+	defer {
+		cb.destroy()
+	}
+	return cb.is_available()
+}
+
+// copy_to_clipboard copies a string of text to the OS clipboard.
+pub fn copy_to_clipboard(text string) bool {
+	mut cb := clipboard.new()
+	defer {
+		cb.destroy()
+	}
+	if !cb.is_available() {
+		return false
+	}
+	return cb.copy(text)
+}
+
+// read_from_clipboard retrieves the current text content from the OS clipboard.
+pub fn read_from_clipboard() string {
+	mut cb := clipboard.new()
+	defer {
+		cb.destroy()
+	}
+	if !cb.is_available() {
+		return ''
+	}
+	return cb.paste()
+}
+

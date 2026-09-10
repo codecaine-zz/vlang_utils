@@ -225,3 +225,41 @@ pub fn measure(action fn ()) time.Duration {
 	action()
 	return time.now() - start
 }
+
+// BenchmarkResult contains timing and throughput metrics from a benchmark run.
+pub struct BenchmarkResult {
+pub:
+	name              string
+	iterations        int
+	total_duration_ms f64
+	avg_duration_ms   f64
+	ops_per_sec       f64
+}
+
+// str returns a formatted summary of the benchmark result.
+pub fn (b BenchmarkResult) str() string {
+	return '${b.name}: ${b.iterations} iters, total=${b.total_duration_ms:.2f}ms, avg=${b.avg_duration_ms:.4f}ms, ops/sec=${b.ops_per_sec:.1f}'
+}
+
+// benchmark_fn runs a function for N iterations and returns throughput and timing metrics.
+pub fn benchmark_fn(name string, iterations int, f fn ()) BenchmarkResult {
+	iters := if iterations > 0 { iterations } else { 1 }
+	start := time.now()
+	for _ in 0 .. iters {
+		f()
+	}
+	total_duration := time.now() - start
+	total_ms := f64(total_duration.nanoseconds()) / 1_000_000.0
+	avg_ms := total_ms / f64(iters)
+	total_sec := total_ms / 1000.0
+	ops_sec := if total_sec > 0.0 { f64(iters) / total_sec } else { 0.0 }
+
+	return BenchmarkResult{
+		name: name
+		iterations: iters
+		total_duration_ms: total_ms
+		avg_duration_ms: avg_ms
+		ops_per_sec: ops_sec
+	}
+}
+

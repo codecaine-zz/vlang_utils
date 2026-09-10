@@ -45,16 +45,16 @@ pub fn to_kebab_case(s string) string {
 
 // to_camel_case converts a string into camelCase.
 pub fn to_camel_case(s string) string {
-	pascal := to_pascal_case(s)
-	if pascal.len == 0 {
+	pascal_str := to_pascal_case(s)
+	if pascal_str.len == 0 {
 		return ''
 	}
-	runes := pascal.runes()
+	runes := pascal_str.runes()
 	first := if runes[0] >= `A` && runes[0] <= `Z` { runes[0] + 32 } else { runes[0] }
-	mut sb := strings.new_builder(pascal.len)
+	mut sb := strings.new_builder(pascal_str.len)
 	sb.write_rune(first)
-	for i in 1 .. runes.len {
-		sb.write_rune(runes[i])
+	if runes.len > 1 {
+		sb.write_string(runes[1..].string())
 	}
 	return sb.str()
 }

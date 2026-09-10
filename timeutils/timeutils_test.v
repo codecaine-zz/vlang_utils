@@ -86,3 +86,17 @@ fn test_stopwatch() {
 	})
 	assert d.milliseconds() >= 3
 }
+
+fn test_benchmark_fn() {
+	res := benchmark_fn('arithmetic_test', 100, fn () {
+		mut x := 0
+		for i in 0 .. 1000 {
+			x += i
+		}
+	})
+	assert res.iterations == 100
+	assert res.total_duration_ms > 0.0
+	assert res.ops_per_sec > 0.0
+	assert res.str().contains('arithmetic_test')
+}
+
