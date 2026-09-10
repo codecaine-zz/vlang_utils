@@ -3115,6 +3115,680 @@ kv.clear()!
 kv.reset()! // clears memory and deletes state file from disk
 ```
 
+---
 
+# cacheutils API
 
+Import statement:
+```v
+import cacheutils
+import time
+```
+
+High-performance, in-memory caching data structures featuring O(1) Least-Recently-Used (LRU) evictions and entry-level Time-To-Live (TTL) expiration policies.
+
+## 1. LRU (Least-Recently-Used) Cache
+
+### `LRUCache[T]`
+
+Fixed-capacity generic in-memory cache that automatically discards the least-recently used items when capacity is reached.
+
+### `new_lru[T](capacity int) !LRUCache[T]`
+
+Initializes a new `LRUCache[T]` with a fixed capacity limit. Capacity must be greater than 0.
+
+```v
+import cacheutils
+
+// Create an LRU cache holding up to 3 strings
+mut cache := cacheutils.new_lru[string](3)!
+
+// Insert items
+cache.set('user:1', 'Alice')
+cache.set('user:2', 'Bob')
+cache.set('user:3', 'Charlie')
+
+// Accessing 'user:1' refreshes its recency
+println(cache.get('user:1') or { 'not found' }) // "Alice"
+
+// Adding a 4th item evicts the oldest ('user:2')
+cache.set('user:4', 'Diana')
+
+println(cache.has('user:2')) // false (evicted)
+println(cache.has('user:1')) // true
+println('Total items in cache: ${cache.len()}') // 3
+
+// Delete an item manually
+cache.delete('user:3')
+
+// Clear the entire cache
+cache.clear()
+```
+
+---
+
+### `get_or_set_lru[T](mut cache LRUCache[T], key string, fetcher fn () !T) !T`
+
+Convenience helper that retrieves a value from the LRU cache if present, or calls `fetcher()` to compute, store, and return it.
+
+```v
+import cacheutils
+
+mut user_cache := cacheutils.new_lru[string](100)!
+
+// Expensive computation runs only on cache miss
+val := cacheutils.get_or_set_lru[string](mut user_cache, 'config:profile', fn () !string {
+    println('Computing expensive profile config...')
+    return '{"theme":"dark","lang":"v"}'
+})!
+
+println('Retrieved: ${val}')
+```
+
+---
+
+## 2. TTL (Time-To-Live) Cache
+
+### `TTLCache[T]`
+
+Generic cache where each entry carries an expiration timestamp. Expired items are ignored upon lookup, lazily removed, or purged via periodic sweeps.
+
+### `new_ttl[T](default_ttl time.Duration) TTLCache[T]`
+
+Initializes a new `TTLCache[T]` with a default expiration duration.
+
+```v
+import cacheutils
+import time
+
+// Create a TTL cache where entries default to expiring after 5 seconds
+mut cache := cacheutils.new_ttl[string](5 * time.second)
+
+// Set with default TTL
+cache.set('session:token', 'abc123xyz')
+
+// Set with custom individual TTL (e.g. 1 hour)
+cache.set_with_ttl('remember_me', 'persistent_cookie', 1 * time.hour)
+
+// Retrieve active item
+if token := cache.get('session:token') {
+    println('Active session: ${token}')
+}
+
+// Check key existence
+if cache.has('remember_me') {
+    println('Remember me token is still valid')
+}
+
+// Sweep and clean up any expired entries
+purged := cache.cleanup_expired()
+println('Purged ${purged} expired entries')
+
+// Remove entry
+cache.delete('session:token')
+
+// Clear all items
+cache.clear()
+```
+
+---
+
+### `get_or_set_ttl[T](mut cache TTLCache[T], key string, fetcher fn () !T) !T`
+
+Retrieves a cached value or executes `fetcher()` to populate the TTL cache if missing or expired.
+
+```v
+import cacheutils
+import time
+
+mut api_cache := cacheutils.new_ttl[string](60 * time.second)
+
+data := cacheutils.get_or_set_ttl[string](mut api_cache, 'api:rates', fn () !string {
+    println('Fetching live exchange rates from remote API...')
+    return '{"USD": 1.0, "EUR": 0.92}'
+})!
+
+println('Rates: ${data}')
+```
+
+---
+
+# semverutils API
+
+Import statement:
+```v
+import semverutils
+```
+
+Complete semantic version parsing, comparison, and range requirement matching conforming strictly to the [SemVer 2.0.0](https://semver.org/) specification.
+
+## Data Structures
+
+### `SemVer`
+
+Represents a parsed semantic version:
+- `major`: int
+- `minor`: int
+- `patch`: int
+- `prerelease`: string (e.g. `alpha.1`, `beta`, `rc.2`)
+- `build`: string (e.g. `build.2026`, `sha.123abc`)
+
+---
+
+## Functions & Methods
+
+### `parse(raw string) !SemVer`
+
+Parses a semantic version string into a `SemVer` struct. Supports leading `'v'` or `'V'`.
+
+```v
+import semverutils
+
+ver := semverutils.parse('v2.1.0-beta.3+build.2026')!
+println('Major: ${ver.major}')       // 2
+println('Minor: ${ver.minor}')       // 1
+println('Patch: ${ver.patch}')       // 0
+println('Prerelease: ${ver.prerelease}') // "beta.3"
+println('Build: ${ver.build}')           // "build.2026"
+println('Standard string: ${ver.str()}') // "2.1.0-beta.3+build.2026"
+```
+
+---
+
+### `compare(a SemVer, b SemVer) int`
+
+Compares two versions according to SemVer 2.0.0 precedence rules. Returns `-1` if `a < b`, `0` if `a == b`, and `1` if `a > b`. Build metadata is ignored per SemVer 2.0.0 spec.
+
+```v
+import semverutils
+
+v1 := semverutils.parse('1.0.0')!
+v2 := semverutils.parse('1.0.0-alpha')!
+
+cmp := semverutils.compare(v1, v2)
+println(cmp) // 1 (1.0.0 is newer than 1.0.0-alpha)
+```
+
+---
+
+### `is_newer(a string, b string) !bool`
+
+Returns true if version string `a` is strictly newer than version string `b`.
+
+```v
+import semverutils
+
+println(semverutils.is_newer('2.0.0', '1.9.9')!) // true
+println(semverutils.is_newer('1.0.0-rc.1', '1.0.0')!) // false
+```
+
+---
+
+### Version Bumping Helpers
+
+- `bump_major(s SemVer) SemVer`: Increments major, resets minor & patch to 0, clears prerelease & build.
+- `bump_minor(s SemVer) SemVer`: Increments minor, resets patch to 0, clears prerelease & build.
+- `bump_patch(s SemVer) SemVer`: Increments patch, clears prerelease & build.
+- `bump_prerelease(s SemVer, tag string) SemVer`: Updates the prerelease identifier.
+
+```v
+import semverutils
+
+base := semverutils.parse('1.2.3')!
+
+v_patch := semverutils.bump_patch(base)
+println(v_patch.str()) // "1.2.4"
+
+v_minor := semverutils.bump_minor(base)
+println(v_minor.str()) // "1.3.0"
+
+v_major := semverutils.bump_major(base)
+println(v_major.str()) // "2.0.0"
+
+v_pre := semverutils.bump_prerelease(base, 'beta.1')
+println(v_pre.str()) // "1.2.3-beta.1"
+```
+
+---
+
+### `satisfies(ver SemVer, requirement string) !bool`
+
+Tests whether a `SemVer` satisfies a version range requirement. Supports:
+- Caret ranges (`^1.2.3`): Compatible non-breaking updates within the major version.
+- Tilde ranges (`~1.2.3`): Patch-level updates within the minor version.
+- Comparisons: `>=`, `<=`, `>`, `<`, `=`
+- Compound expressions: `>=1.0.0 <2.0.0`
+- Wildcards: `*`
+
+```v
+import semverutils
+
+v := semverutils.parse('1.2.4')!
+
+println(semverutils.satisfies(v, '^1.2.0')!) // true (compatible with 1.x)
+println(semverutils.satisfies(v, '~1.2.0')!) // true (patch update on 1.2.x)
+println(semverutils.satisfies(v, '>=1.0.0 <2.0.0')!) // true
+println(semverutils.satisfies(v, '^2.0.0')!) // false
+```
+
+---
+
+# flowutils API
+
+Import statement:
+```v
+import flowutils
+import time
+```
+
+Resilience and traffic control primitives: Token Bucket rate limiting, Circuit Breaker state machine, exponential backoff retries, and call debouncing.
+
+## 1. Rate Limiting (Token Bucket)
+
+### `RateLimiter`
+
+Token Bucket rate limiter for managing bursty traffic and enforcing requests-per-second thresholds.
+
+### `new_rate_limiter(capacity int, refill_rate_per_sec f64) !RateLimiter`
+
+Initializes a rate limiter with a maximum token bucket capacity and a refill rate in tokens per second.
+
+```v
+import flowutils
+import time
+
+// Allow up to 10 tokens burst, refilling at 2 tokens per second
+mut limiter := flowutils.new_rate_limiter(10, 2.0)!
+
+// Consume 1 token
+if limiter.allow() {
+    println('Request permitted!')
+}
+
+// Consume multiple tokens (e.g. 5 tokens for a batch job)
+if limiter.allow_n(5) {
+    println('Batch job permitted!')
+} else {
+    println('Rate limit exceeded for batch job')
+}
+
+// Inspect available token pool
+println('Available tokens: ${limiter.available_tokens():.2f}')
+
+// Block execution until 1 token is ready
+limiter.wait()!
+
+// Reset token bucket back to full capacity
+limiter.reset()
+```
+
+---
+
+## 2. Circuit Breaker
+
+### `CircuitBreaker`
+
+3-state failure protection barrier (`closed` -> `open` -> `half_open`) preventing cascading downtime across microservices and external APIs.
+
+### `new_circuit_breaker(failure_threshold int, recovery_timeout time.Duration) !CircuitBreaker`
+
+Creates a circuit breaker that trips to `open` after `failure_threshold` consecutive errors, remaining open for `recovery_timeout` before allowing trial probe requests in `half_open` state.
+
+```v
+import flowutils
+import time
+
+mut cb := flowutils.new_circuit_breaker(3, 5 * time.second)!
+
+// Check if execution is permitted
+if cb.can_execute() {
+    // Attempt remote network call
+    success := true // simulate network call
+    if success {
+        cb.record_success()
+    } else {
+        cb.record_failure()
+    }
+} else {
+    println('Circuit is OPEN! Fast failing request.')
+}
+
+// Inspect breaker status
+println('Circuit is closed (healthy): ${cb.is_closed()}')
+println('Circuit is open (tripped): ${cb.is_open()}')
+println('State: ${cb.get_state()}') // .closed, .open, or .half_open
+
+// Manually reset breaker
+cb.reset()
+```
+
+---
+
+## 3. Exponential Backoff Retry
+
+### `retry[T](attempts int, base_delay time.Duration, factor f64, max_delay time.Duration, action fn () !T) !T`
+
+Executes `action` repeatedly with exponentially increasing delays until it succeeds or exhausts `attempts`.
+
+```v
+import flowutils
+import time
+
+// Retry up to 4 times, starting with 50ms delay, multiplying by 2.0, capped at 1s
+res := flowutils.retry[string](4, 50 * time.millisecond, 2.0, 1 * time.second, fn () !string {
+    // Perform transient network request
+    return 'Fetched payload successfully'
+})!
+
+println(res)
+```
+
+---
+
+## 4. Debouncer
+
+### `Debouncer`
+
+Rate limits high-frequency events (e.g. keypresses, file change notifications) by ensuring a minimum delay between executions.
+
+### `new_debouncer(delay time.Duration) Debouncer`
+
+Creates a debouncer requiring `delay` duration of inactivity before `can_trigger()` returns true again.
+
+```v
+import flowutils
+import time
+
+mut debouncer := flowutils.new_debouncer(250 * time.millisecond)
+
+// In an event loop or keypress listener:
+if debouncer.can_trigger() {
+    println('Executing debounced action (e.g. search query)')
+} else {
+    println('Ignored rapid subsequent trigger')
+}
+
+// Reset timer
+debouncer.reset()
+```
+
+---
+
+# templateutils API
+
+Import statement:
+```v
+import templateutils
+```
+
+Fast, lightweight string templating with fallback default values, custom resolver callbacks, and ANSI markdown rendering for terminal interfaces.
+
+## Functions
+
+### `render_template(tpl string, vars map[string]string) string`
+
+Renders `{{key}}` and `{{key | default}}` placeholders using a dictionary of string values. If a key is missing and has no default specified, the placeholder remains untouched.
+
+```v
+import templateutils
+
+tpl := 'Hello {{name}}! Welcome to {{app | Antigravity IDE}} on {{os}}.'
+vars := {
+    'name': 'Alice'
+    'os':   'macOS'
+}
+
+rendered := templateutils.render_template(tpl, vars)
+println(rendered) // "Hello Alice! Welcome to Antigravity IDE on macOS."
+```
+
+---
+
+### `render_template_fn(tpl string, resolver fn (key string) ?string) string`
+
+Renders placeholders dynamically using a callback function. Supports fallback defaults if the resolver returns `none`.
+
+```v
+import templateutils
+import os
+
+tpl := 'Running user: {{USER | unknown}}, Path: {{HOME}}'
+
+rendered := templateutils.render_template_fn(tpl, fn (key string) ?string {
+    val := os.getenv(key)
+    if val.len > 0 {
+        return val
+    }
+    return none
+})
+
+println(rendered)
+```
+
+---
+
+### `render_markdown_ansi(markdown string) string`
+
+Renders CommonMark markdown subsets into styled ANSI terminal output, transforming:
+- Headings (`#`, `##`, `###`) into bold underlined headers
+- `**bold**` into bold ANSI text
+- `*italic*` into italic ANSI text
+- `` `code` `` into inverted/colored code text
+- Code fences (```` ``` ````) into indented blocks
+- Blockquotes (`> `) into styled callout quotes
+- Bullet lists (`- ` or `* `) into clean bullet markers
+
+```v
+import templateutils
+
+md := '# Installation Guide\nTo install `vlang_utils`, run:\n```\nv install codecaine.vlang_utils\n```\n> **Note:** Requires V 0.4+.'
+
+println(templateutils.render_markdown_ansi(md))
+```
+
+---
+
+# colorutils API
+
+Import statement:
+```v
+import colorutils
+```
+
+Comprehensive color conversions (HEX, RGB, HSL), color theory transformations (lighten, darken, invert, blend, grayscale), WCAG 2.1 accessibility auditing (relative luminance, contrast ratio, AA/AAA compliance), and 24-bit truecolor ANSI terminal styling.
+
+## Data Structures
+
+### `RGB`
+
+Represents an 8-bit per channel Red-Green-Blue color:
+- `r`: u8
+- `g`: u8
+- `b`: u8
+- `(c RGB) hex() string`: Formats color as lowercase `#rrggbb`.
+- `(c RGB) str() string`: Formats color as `rgb(r, g, b)`.
+
+### `HSL`
+
+Represents Hue (0.0 to 360.0°), Saturation (0.0 to 1.0), and Lightness (0.0 to 1.0):
+- `h`: f64
+- `s`: f64
+- `l`: f64
+- `(c HSL) str() string`: Formats color as `hsl(h, s%, l%)`.
+
+---
+
+## 1. Color Space Conversions
+
+### `hex_to_rgb(hex_str string) !RGB`
+
+Parses 3-character or 6-character hex strings (with or without `#`).
+
+```v
+import colorutils
+
+c1 := colorutils.hex_to_rgb('#007acc')!
+println('R=${c1.r}, G=${c1.g}, B=${c1.b}') // R=0, G=122, B=204
+
+c2 := colorutils.hex_to_rgb('f0a')! // Short form #ff00aa
+println(c2.hex()) // "#ff00aa"
+```
+
+---
+
+### `rgb_to_hex(c RGB) string`
+
+Formats an RGB struct into a lowercase hex string.
+
+```v
+import colorutils
+
+hex := colorutils.rgb_to_hex(colorutils.RGB{255, 128, 0})
+println(hex) // "#ff8000"
+```
+
+---
+
+### `rgb_to_hsl(c RGB) HSL` & `hsl_to_rgb(hsl HSL) RGB`
+
+Bidirectional lossless conversion between RGB and HSL color spaces.
+
+```v
+import colorutils
+
+rgb := colorutils.RGB{255, 0, 0} // Pure Red
+hsl := colorutils.rgb_to_hsl(rgb)
+println('Hue: ${hsl.h}°, Saturation: ${hsl.s * 100}%, Lightness: ${hsl.l * 100}%') // 0°, 100%, 50%
+
+back_rgb := colorutils.hsl_to_rgb(hsl)
+println(back_rgb.str()) // "rgb(255, 0, 0)"
+```
+
+---
+
+## 2. Color Transformations & Harmonies
+
+### `lighten(c RGB, percent f64) RGB` & `darken(c RGB, percent f64) RGB`
+
+Adjusts color lightness by a percentage from `0.0` to `1.0`.
+
+```v
+import colorutils
+
+blue := colorutils.RGB{0, 100, 200}
+lighter := colorutils.lighten(blue, 0.2) // 20% lighter
+darker  := colorutils.darken(blue, 0.2)  // 20% darker
+```
+
+---
+
+### `invert(c RGB) RGB`
+
+Computes the inverted / photographic negative of an RGB color.
+
+```v
+import colorutils
+
+white := colorutils.RGB{255, 255, 255}
+black := colorutils.invert(white) // RGB{0, 0, 0}
+```
+
+---
+
+### `blend(c1 RGB, c2 RGB, factor f64) RGB`
+
+Linearly interpolates between two colors with a factor from `0.0` (`c1`) to `1.0` (`c2`).
+
+```v
+import colorutils
+
+red := colorutils.RGB{255, 0, 0}
+blue := colorutils.RGB{0, 0, 255}
+purple := colorutils.blend(red, blue, 0.5) // Halfway blend
+```
+
+---
+
+### `grayscale(c RGB) RGB`
+
+Converts an RGB color to perceptually weighted grayscale using ITU-R BT.601 luminance coefficients.
+
+```v
+import colorutils
+
+c := colorutils.RGB{255, 200, 50}
+gray := colorutils.grayscale(c)
+```
+
+---
+
+## 3. WCAG 2.1 Accessibility & Contrast
+
+### `luminance(c RGB) f64`
+
+Calculates relative luminance according to the WCAG 2.1 standard (returns `0.0` for black to `1.0` for white).
+
+```v
+import colorutils
+
+lum := colorutils.luminance(colorutils.RGB{255, 255, 255})
+println('Luminance: ${lum}') // 1.0
+```
+
+---
+
+### `contrast_ratio(c1 RGB, c2 RGB) f64`
+
+Computes the WCAG contrast ratio between two colors (ranging from `1.0:1` to `21.0:1`).
+
+```v
+import colorutils
+
+black := colorutils.RGB{0, 0, 0}
+white := colorutils.RGB{255, 255, 255}
+ratio := colorutils.contrast_ratio(black, white)
+println('Contrast: ${ratio:.1f}:1') // "Contrast: 21.0:1"
+```
+
+---
+
+### `is_accessible(foreground RGB, background RGB, level string) bool`
+
+Audits whether foreground and background colors meet WCAG contrast thresholds:
+- `"AA"`: Standard text (minimum ratio 4.5:1)
+- `"AAA"`: Enhanced contrast (minimum ratio 7.0:1)
+- `"AA_large"`: Large text and UI graphics (minimum ratio 3.0:1)
+
+```v
+import colorutils
+
+bg := colorutils.RGB{255, 255, 255} // White
+fg := colorutils.RGB{0, 122, 204}   // Blue
+
+println('Meets AA standard text: ${colorutils.is_accessible(fg, bg, "AA")}')
+println('Meets AAA enhanced text: ${colorutils.is_accessible(fg, bg, "AAA")}')
+```
+
+---
+
+## 4. Terminal Truecolor (24-bit ANSI) Formatting
+
+### `fg_rgb(text string, c RGB) string` & `bg_rgb(text string, c RGB) string`
+
+Formats text with 24-bit Truecolor ANSI terminal escape sequences.
+
+```v
+import colorutils
+
+brand_color := colorutils.RGB{255, 107, 107}
+white := colorutils.RGB{255, 255, 255}
+
+// 24-bit truecolor text
+styled_text := colorutils.fg_rgb('Hello Vibrant World!', brand_color)
+println(styled_text)
+
+// Combined foreground and background
+badge := colorutils.bg_rgb(colorutils.fg_rgb(' SUCCESS ', white), colorutils.RGB{46, 204, 113})
+println(badge)
+```
 

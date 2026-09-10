@@ -21,6 +21,11 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`structutils`](#13-structutils) | Generic RAD data structures: `SimpleStack[T]`, `SimpleQueue[T]`, circular `SimpleRingBuffer[T]`, and `SimpleMinHeap`. |
 | [`statutils`](#14-statutils) | Statistical analysis, regression & modeling: mean, median, mode, sample/pop variance & std dev, SEM, quartiles, IQR, skewness, kurtosis, covariance, Pearson/Spearman correlation, OLS linear regression, normal PDF/CDF, Z-scores, outlier detection, moving averages, and summary profiles. |
 | [`stateutils`](#15-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with atomic writes, auto-save, and rollback. |
+| [`cacheutils`](#16-cacheutils) | In-memory caching: fixed-capacity `LRUCache[T]` with O(1) recency eviction and entry-level `TTLCache[T]` with auto-cleanup and `get_or_set`. |
+| [`semverutils`](#17-semverutils) | Semantic Versioning 2.0.0 parsing, precedence comparison, range matching (`^`, `~`, `>=`, `<=`), and version bumping. |
+| [`flowutils`](#18-flowutils) | Traffic control & resilience: Token Bucket `RateLimiter`, 3-state `CircuitBreaker`, exponential backoff `retry[T]`, and event `Debouncer`. |
+| [`templateutils`](#19-templateutils) | Fast string templating with fallback defaults (`{{key | default}}`), dynamic resolvers, and styled ANSI markdown terminal rendering. |
+| [`colorutils`](#20-colorutils) | HEX/RGB/HSL color conversions, color theory transforms, WCAG 2.1 accessibility & contrast auditing, and 24-bit Truecolor terminal formatting. |
 
 ---
 
@@ -294,11 +299,94 @@ kv.set_str('user', 'alex')!
 kv.set_int('launches', 5)!
 ```
 
+### 16. `cacheutils`
+```v
+import cacheutils
+import time
+
+// Fixed-capacity LRU cache
+mut lru := cacheutils.new_lru[string](2)!
+lru.set('session:1', 'Alice')
+lru.set('session:2', 'Bob')
+lru.set('session:3', 'Charlie') // Automatically evicts session:1
+
+// Time-To-Live cache
+mut ttl := cacheutils.new_ttl[string](60 * time.second)
+val := cacheutils.get_or_set_ttl[string](mut ttl, 'rates', fn () !string {
+    return '{"USD": 1.0}'
+})!
+```
+
+### 17. `semverutils`
+```v
+import semverutils
+
+v1 := semverutils.parse('v1.2.3-beta.1+build.42')!
+v_bumped := semverutils.bump_minor(v1) // 1.3.0
+
+// Range requirement checks
+is_match := semverutils.satisfies(v_bumped, '^1.2.0')! // true
+```
+
+### 18. `flowutils`
+```v
+import flowutils
+import time
+
+// Token bucket rate limiter: 10 capacity, 2 tokens/sec
+mut limiter := flowutils.new_rate_limiter(10, 2.0)!
+if limiter.allow_n(2) {
+    // Process request
+}
+
+// 3-state circuit breaker
+mut cb := flowutils.new_circuit_breaker(3, 5 * time.second)!
+if cb.can_execute() {
+    // Attempt remote dependency
+}
+
+// Exponential backoff retry
+data := flowutils.retry[string](3, 100 * time.millisecond, 2.0, 1 * time.second, fn () !string {
+    return 'payload'
+})!
+```
+
+### 19. `templateutils`
+```v
+import templateutils
+
+tpl := 'Welcome {{name}}! Platform: {{os | Linux}}'
+rendered := templateutils.render_template(tpl, {
+    'name': 'Developer'
+})
+println(rendered) // "Welcome Developer! Platform: Linux"
+
+// Terminal ANSI markdown
+println(templateutils.render_markdown_ansi('# Header\n**bold** and `code`'))
+```
+
+### 20. `colorutils`
+```v
+import colorutils
+
+// HEX / RGB / HSL conversions & adjustments
+hex_color := colorutils.hex_to_rgb('#007acc')!
+lighter   := colorutils.lighten(hex_color, 0.2)
+
+// WCAG 2.1 accessibility auditing
+white := colorutils.RGB{255, 255, 255}
+ratio := colorutils.contrast_ratio(hex_color, white)
+is_aa := colorutils.is_accessible(hex_color, white, 'AA')
+
+// 24-bit Truecolor terminal output
+println(colorutils.fg_rgb('Truecolor Text', hex_color))
+```
+
 ---
 
 ## Running the Demo
 
-To run the complete interactive demo showcasing all 15 modules:
+To run the complete interactive demo showcasing all 20 modules:
 
 ```bash
 v run main.v
@@ -314,4 +402,4 @@ v test .
 
 ## API Documentation
 
-For the complete API reference with comprehensive, runnable examples for each function, see [API.md](API.md).
+For the complete API reference with comprehensive, runnable examples for all 496 public functions and structs, see [API.md](API.md).

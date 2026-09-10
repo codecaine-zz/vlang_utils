@@ -16,6 +16,11 @@ import validutils
 import structutils
 import statutils
 import stateutils
+import cacheutils
+import semverutils
+import flowutils
+import templateutils
+import colorutils
 import time
 
 struct Person {
@@ -33,7 +38,7 @@ pub mut:
 
 fn main() {
 	println(cliutils.bold(cliutils.cyan('==================================================')))
-	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 15-Module Showcase      ')))
+	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 20-Module Showcase      ')))
 	println(cliutils.bold(cliutils.cyan('==================================================')))
 
 	// 1. FILEUTILS DEMO
@@ -284,5 +289,67 @@ fn main() {
 	kv.set_int('launch_count', 15) or {}
 	println(' - Dynamic KV State: user_locale=${kv.get_str("user_locale", "")}, launches=${kv.get_int("launch_count", 0)}')
 
-	println('\n' + cliutils.bold(cliutils.green('✔ All 15 modules in vlang_utils demonstrated successfully!')))
+	// 16. CACHEUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('16. [cacheutils] LRU & TTL Caching:')))
+	mut lru := cacheutils.new_lru[string](2) or { panic(err) }
+	lru.set('session:1', 'Alice')
+	lru.set('session:2', 'Bob')
+	lru.set('session:3', 'Charlie') // evicts session:1
+	println(' - LRU Capacity 2, accessed: ${lru.get("session:1") or { "none (evicted)" }}, ${lru.get("session:3") or { "" }}')
+
+	mut ttl := cacheutils.new_ttl[string](500 * time.millisecond)
+	ttl.set('token:1', 'secret_jwt')
+	val := cacheutils.get_or_set_ttl(mut ttl, 'computed:1', fn () !string {
+		return 'computed_expensive_value'
+	}) or { '' }
+	println(' - TTL Cache get_or_set: ${val}, token:1 active: ${ttl.has("token:1")}')
+
+	// 17. SEMVERUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('17. [semverutils] Semantic Versioning 2.0.0:')))
+	v1 := semverutils.parse('1.2.3-beta.1+build.42') or { semverutils.SemVer{} }
+	println(' - Parsed SemVer: ${v1.str()} (Major: ${v1.major}, Minor: ${v1.minor}, Patch: ${v1.patch}, Pre: ${v1.prerelease})')
+	v_bumped := semverutils.bump_minor(v1)
+	println(' - Bump Minor: ${v_bumped.str()}')
+	range_match := semverutils.satisfies(v1, '^1.2.0') or { false }
+	println(' - Satisfies "^1.2.0": ${range_match}')
+
+	// 18. FLOWUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('18. [flowutils] Rate Limiting, Circuit Breaker & Retry:')))
+	mut limiter := flowutils.new_rate_limiter(10, 5.0) or { panic(err) } // 10 tokens capacity, 5 tokens/sec
+	println(' - Rate Limiter allow 2 tokens: ${limiter.allow_n(2)}')
+
+	mut cb := flowutils.new_circuit_breaker(3, 1 * time.second) or { panic(err) }
+	println(' - Circuit Breaker state: ${cb.get_state()}')
+
+	retry_result := flowutils.retry[string](3, 5 * time.millisecond, 2.0, 50 * time.millisecond, fn () !string {
+		return 'success via exponential backoff'
+	}) or { 'failed' }
+	println(' - Exponential Backoff Retry: ${retry_result}')
+
+	// 19. TEMPLATEUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('19. [templateutils] Template & ANSI Markdown Rendering:')))
+	rendered := templateutils.render_template('Hello {{name}}! Welcome to {{site | vlang.io}}', {
+		'name': 'Developer'
+	})
+	println(' - Template: "${rendered}"')
+
+	md_preview := templateutils.render_markdown_ansi('# Welcome\nUse `vlang_utils` for **fast** development.')
+	println(' - ANSI Markdown rendering:\n${md_preview}')
+
+	// 20. COLORUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('20. [colorutils] Color Conversion, WCAG & Truecolor Terminal:')))
+	c_hex := colorutils.hex_to_rgb('#007acc') or { colorutils.RGB{} }
+	hsl := colorutils.rgb_to_hsl(c_hex)
+	println(' - Hex #007acc -> RGB(${c_hex.r}, ${c_hex.g}, ${c_hex.b}) -> HSL(${hsl.h:.0f}°, ${hsl.s * 100:.0f}%, ${hsl.l * 100:.0f}%)')
+	
+	white := colorutils.RGB{255, 255, 255}
+	contrast := colorutils.contrast_ratio(c_hex, white)
+	accessible := colorutils.is_accessible(c_hex, white, 'AA')
+	println(' - Contrast vs White: ${contrast:.2f}:1 (WCAG AA Normal: ${accessible})')
+
+	styled_terminal := colorutils.bg_rgb(colorutils.fg_rgb('  V-LANG UTILS 20-MODULES COMPLETE  ', white), c_hex)
+	println(' - Truecolor Styled Output:\n${styled_terminal}')
+
+	println('\n' + cliutils.bold(cliutils.green('✔ All 20 modules in vlang_utils demonstrated successfully!')))
 }
+
