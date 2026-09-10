@@ -29,3 +29,7 @@ modules/
 # Demo output directories
 .*_demo/
 
+# V compiler artifacts produced by the demo runner
+demos/.*.v3cc.*/
+demos/run_all_demos
+
