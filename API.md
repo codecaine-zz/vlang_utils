@@ -1,23 +1,45 @@
 # V Developer Utility Suite (`vlang_utils`) - Complete API Reference
 
-Welcome to the comprehensive API reference manual for the **30 production-grade developer utility modules** in the `vlang_utils` library. 
+Welcome to the comprehensive API reference manual for the **30 production-grade developer utility modules** integrated directly into `simple_gg`.
 
 Every module is zero-dependency, self-contained, and designed for Rapid Application Development (RAD). You can import any module directly across GUI apps, CLI tools, services, and background workers (e.g. `import strutils`, `import sqliteutils`, `import cacheutils`).
 
 ---
 
+## Start Here: How To Read Any Example
+
+Each example is a small recipe. Copy the section's **Import statement** and the example into a file ending in `.v`, then run it from this project with `v run your_file.v`. Text inside single quotes, such as `'Alice'` or `'data/report.json'`, is sample input: replace it with your own name, text, file path, or value.
+
+The examples use a few V conventions that are worth knowing before you start:
+
+- `import fileutils` makes the named toolkit available. Keep it at the top of your file.
+- `name := value` creates a value and gives it a name. Later lines can use that name. `mut name := value` means the value will be changed later.
+- A value in quotes is text. Values such as `42`, `true`, and `1.5` are a whole number, yes/no choice, and decimal number.
+- `[]` means a list, for example `['red', 'blue']`. `{}` means named values, for example `{ 'name': 'Alice' }`.
+- A trailing `!`, as in `fileutils.read_text_file('notes.txt')!`, means the operation may fail. It stops with a clear error when a file is missing, input is invalid, or the operating system refuses the operation. Use `or { ... }` when you want to choose a fallback instead.
+- `println(...)` displays a result in the terminal. `assert ...` checks that an example produced the expected answer; it prints nothing when the check passes.
+
+Examples that contact a website, read a file, use the clipboard, or ask a question in the terminal need that service, file, or user input to be available. Their surrounding text names the required input and explains the expected result.
+
+---
+
 <a id="table-of-contents"></a>
+
 ## 📑 Table of Contents
 
 ### ⚡ Quick Jump Index
 
-[`fileutils`](#fileutils-api) • [`sqliteutils`](#sqliteutils-api) • [`strutils`](#strutils-api) • [`sliceutils`](#sliceutils-api) • [`envutils`](#envutils-api) • [`cryptoutils`](#cryptoutils-api) • [`timeutils`](#timeutils-api) • [`httputils`](#httputils-api) • [`cliutils`](#cliutils-api) • [`sysutils`](#sysutils-api) • [`netutils`](#netutils-api) • [`validutils`](#validutils-api) • [`structutils`](#structutils-api) • [`statutils`](#statutils-api) • [`stateutils`](#stateutils-api) • [`cacheutils`](#cacheutils-api) • [`semverutils`](#semverutils-api) • [`flowutils`](#flowutils-api) • [`templateutils`](#templateutils-api) • [`colorutils`](#colorutils-api) • [`archiveutils`](#archiveutils-api) • [`asyncutils`](#asyncutils-api) • [`regexutils`](#regexutils-api) • [`mockutils`](#mockutils-api) • [`logutils`](#logutils-api) • [`tomlutils`](#tomlutils-api) • [`htmlutils`](#htmlutils-api) • [`bitutils`](#bitutils-api) • [`compressutils`](#compressutils-api) • [`tarutils`](#tarutils-api) • [Advanced Additions & Enhancements](#advanced-additions--enhancements)
+[`archiveutils`](#archiveutils-api) • [`asyncutils`](#asyncutils-api) • [`bitutils`](#bitutils-api) • [`cacheutils`](#cacheutils-api) • [`cliutils`](#cliutils-api) • [`colorutils`](#colorutils-api) • [`compressutils`](#compressutils-api) • [`cryptoutils`](#cryptoutils-api) • [`envutils`](#envutils-api) • [`fileutils`](#fileutils-api) • [`flowutils`](#flowutils-api) • [`htmlutils`](#htmlutils-api) • [`httputils`](#httputils-api) • [`logutils`](#logutils-api) • [`mockutils`](#mockutils-api) • [`netutils`](#netutils-api) • [`regexutils`](#regexutils-api) • [`semverutils`](#semverutils-api) • [`sliceutils`](#sliceutils-api) • [`sqliteutils`](#sqliteutils-api) • [`stateutils`](#stateutils-api) • [`statutils`](#statutils-api) • [`structutils`](#structutils-api) • [`strutils`](#strutils-api) • [`sysutils`](#sysutils-api) • [`tarutils`](#tarutils-api) • [`templateutils`](#templateutils-api) • [`timeutils`](#timeutils-api) • [`tomlutils`](#tomlutils-api) • [`validutils`](#validutils-api) • [Advanced Additions & Enhancements](#advanced-additions--enhancements)
 
 ---
 
 ### 📂 Categorized Modules & Subsections
 
 #### 1. File & Data Persistence
+
+- **[`cacheutils`](#cacheutils-api)** — In-memory LRU and TTL caching engines
+  - [LRU (Least-Recently-Used) Cache](#1-lru-least-recently-used-cache)
+  - [TTL (Time-To-Live) Cache](#2-ttl-time-to-live-cache)
 - **[`fileutils`](#fileutils-api)** — High-level file, JSON, CSV, and directory operations
   - [Struct Helpers](#struct-helpers)
   - [Text File Helpers](#text-file-helpers)
@@ -36,146 +58,92 @@ Every module is zero-dependency, self-contained, and designed for Rapid Applicat
   - [Query Helpers](#query-helpers)
   - [Column Management Helpers](#column-management-helpers)
 - **[`stateutils`](#stateutils-api)** — Atomic crash-proof AppStateStore & KeyValueState with auto-save & rollback
-  - [OS-Recommended Path Resolution](#stateutils-path-resolution)
-  - [Direct State Functions](#stateutils-direct-state-functions)
-  - [`AppStateStore[T]` Generic Store](#stateutils-appstatestore)
-  - [`KeyValueState` Dynamic App State](#stateutils-keyvaluestate)
-- **[`cacheutils`](#cacheutils-api)** — In-memory LRU and TTL caching engines
-  - [LRU (Least-Recently-Used) Cache](#1-lru-least-recently-used-cache)
-  - [TTL (Time-To-Live) Cache](#2-ttl-time-to-live-cache)
 
 #### 2. Strings, Collections & Math
-- **[`strutils`](#strutils-api)** — String transformations, casing, slugify, masking, padding, wrap, distance
-  - [Case Conversions (Snake, Kebab, Camel, Pascal, Title)](#strutils-case-conversions)
-  - [Formatting, Masking & Padding](#strutils-formatting-masking)
-  - [Random Strings & Delimiter Extraction](#strutils-random-extraction)
-  - [Text Cleansing, Wrapping & Levenshtein Distance](#strutils-cleansing-distance)
-- **[`sliceutils`](#sliceutils-api)** — Generic slice operations, set math, chunking, partition, shuffle, stats
-  - [Set & Comparison Operations (Unique, Intersection, Difference, Union)](#sliceutils-set-operations)
-  - [Transformation, Chunking & Partitioning](#sliceutils-transformation-partitioning)
-  - [Randomization & Sampling](#sliceutils-randomization-sampling)
-  - [Numeric Aggregations & Statistics (Sum, Average, Min, Max)](#sliceutils-numeric-aggregations)
-- **[`structutils`](#structutils-api)** — Generic Stack, Queue, RingBuffer, and MinHeap data structures
-  - [Generic Stack (`SimpleStack[T]`)](#structutils-stack)
-  - [Generic Queue (`SimpleQueue[T]`)](#structutils-queue)
-  - [Circular Ring Buffer (`SimpleRingBuffer[T]`)](#structutils-ring-buffer)
-  - [Priority Queue (`SimpleMinHeap`)](#structutils-min-heap)
-- **[`statutils`](#statutils-api)** — Statistical analysis, linear regression, variance, quartiles, outlier detection
-  - [1. Measures of Central Tendency (Mean, Median, Mode)](#statutils-central-tendency)
-  - [2. Measures of Dispersion & Spread (Variance, Std Dev, Quartiles, IQR)](#statutils-dispersion-spread)
-  - [3. Distribution Shape (Skewness, Kurtosis)](#statutils-distribution-shape)
-  - [4. Bivariate Analysis: Correlation & Linear Regression](#statutils-bivariate-analysis)
-  - [5. Probability Distributions & Normalization (PDF, CDF, Z-scores)](#statutils-probability-normalization)
-  - [6. Outlier Detection (IQR & Z-score)](#statutils-outlier-detection)
-  - [7. Time Series & Smoothing (Moving Averages)](#statutils-time-series)
-  - [8. Comprehensive Summary Profile (`SummaryStats`)](#statutils-summary-stats)
+
 - **[`bitutils`](#bitutils-api)** — Dynamic BitSet, popcount, bitwise operations, binary string conversions
-  - [`BitSet` & Bitwise Arithmetic](#bitutils-bitset)
+- **[`sliceutils`](#sliceutils-api)** — Generic slice operations (unique, chunk, flatten, partition, sample, shuffle)
+- **[`statutils`](#statutils-api)** — Statistical analysis, linear regression, variance, quartiles, outlier detection
+- **[`structutils`](#structutils-api)** — Generic Stack, Queue, RingBuffer, and MinHeap data structures
+- **[`strutils`](#strutils-api)** — String transformations, casing (snake, kebab, camel, pascal), slugify, masking, wrap
 
 #### 3. System Telemetry, OS & CLI
-- **[`sysutils`](#sysutils-api)** — CPU/RAM/disk telemetry, system uptime, safe command execution, clipboard
-  - [Hardware Telemetry & Probing (CPU, Memory, Swap, Disk, Battery, Uptime)](#sysutils-hardware-telemetry)
-  - [Process Security & Command Execution (`exec_safe`, `exec_timeout`, `exec_retry`)](#sysutils-process-security)
-  - [Standard System Paths & Clipboard](#sysutils-system-paths-clipboard)
+
 - **[`cliutils`](#cliutils-api)** — ANSI terminal colors, FlagParser, interactive prompts, progress bars, tables
-  - [ANSI Colors & Text Styles](#cliutils-ansi-styling)
-  - [Interactive Terminal Prompts](#cliutils-interactive-prompts)
-  - [Terminal Visualizations (ProgressBar, Sparkline, BarChart, Gauge)](#cliutils-terminal-visualizations)
-  - [Presentation & Layout Components (Banner, Box, Tree, Diff)](#cliutils-presentation-layout)
-  - [Data Formatting & Table Export (CSV, JSON, Markdown)](#cliutils-table-export)
-  - [CLI Tools (`FlagParser`, `Pipeline`, `Logger`)](#cliutils-cli-tools)
 - **[`envutils`](#envutils-api)** — Type-safe environment variable access, .env file loader, variable expansion
-  - [Typed Environment Variable Access (`get_str`, `get_int`, `get_bool`, `get_required`)](#envutils-typed-access)
-  - [Dotenv (`.env`) Loading & Parsing](#envutils-dotenv)
-  - [Variable Expansion (`expand_env`)](#envutils-variable-expansion)
 - **[`logutils`](#logutils-api)** — Leveled structured logging (.debug, .info, .warn, .error, .fatal)
-  - [`LoggerConfig` & `Logger` Implementation](#logutils-logger)
+- **[`sysutils`](#sysutils-api)** — CPU/RAM/disk telemetry, system uptime, safe command execution, clipboard
 
 #### 4. Network, HTTP & Web
-- **[`netutils`](#netutils-api)** — Local/public IP discovery, MAC address, Wi-Fi SSID, DNS servers, TCP ping
-  - [Network Connectivity & TCP Port Probing](#netutils-connectivity-probing)
-  - [IP & Hardware Addresses (Local/Public IP, MAC, Wi-Fi)](#netutils-ip-hardware-addresses)
-  - [DNS Servers, Default Gateway & Listening Ports](#netutils-dns-gateway)
-- **[`httputils`](#httputils-api)** — Ergonomic typed HTTP client (get_json, post_json), query builders, retries
-  - [Query String Building & Parsing](#httputils-query-string)
-  - [Text & JSON HTTP Requests (`get_json`, `post_json`)](#httputils-requests)
-  - [File Downloads (`download_file`)](#httputils-download)
-  - [Resilient Requests with Exponential Backoff (`fetch_with_retry`)](#httputils-retry)
+
 - **[`htmlutils`](#htmlutils-api)** — HTML document parsing, DOM element search, tag stripping, entity escaping
-  - [`HtmlDoc`, `HtmlNode`, & DOM Manipulation](#htmlutils-htmldoc)
+- **[`httputils`](#httputils-api)** — Ergonomic typed HTTP client (get_json, post_json), query builders, retries
+- **[`netutils`](#netutils-api)** — Local/public IP discovery, MAC address, Wi-Fi SSID, DNS servers, TCP ping
 
 #### 5. Parsing, Formatting & Encodings
-- **[`tomlutils`](#tomlutils-api)** — TOML configuration file and string parser with typed accessors
-  - [`TomlDoc` & Parsing Functions](#tomlutils-tomldoc)
-- **[`templateutils`](#templateutils-api)** — Fast string templating with defaults ({{key | default}}), terminal markdown
-  - [Template Functions (`render_template`, `render_template_fn`)](#templateutils-functions)
-  - [Terminal Markdown ANSI Rendering (`render_markdown_ansi`)](#templateutils-markdown-ansi)
+
 - **[`regexutils`](#regexutils-api)** — High-level regular expressions (is_match, find_all, replace, split)
-  - [Regex Data Structures (`Match`)](#regexutils-data-structures)
-  - [Regex Functions (`is_match`, `find_first`, `find_all`, `replace`, `split`)](#regexutils-functions)
+  - [Regex Data Structures](#regexutils-data-structures)
+  - [Regex Functions](#regexutils-functions)
 - **[`semverutils`](#semverutils-api)** — Semantic Versioning 2.0.0 parsing, precedence compare, range matching, bumping
-  - [SemVer Data Structures (`SemVer`)](#semverutils-data-structures)
-  - [SemVer Functions & Methods (`parse`, `compare`, `is_newer`, Version Bumping, `satisfies`)](#semverutils-functions--methods)
-- **[`validutils`](#validutils-api)** — High-speed input validation (email, URL, IPv4/IPv6, phone, UUID, range, JSON)
-  - [Fast Data Validators](#validutils-fast-data-validators)
+  - [SemVer Data Structures](#semverutils-data-structures)
+  - [SemVer Functions & Methods](#semverutils-functions--methods)
+- **[`templateutils`](#templateutils-api)** — Fast string templating with defaults ({{key | default}}), terminal markdown
+  - [Template Functions](#templateutils-functions)
 - **[`timeutils`](#timeutils-api)** — Relative time ("2 hours ago"), ISO 8601 parsing/formatting, Stopwatch, benchmarking
-  - [Relative Time & Duration Formatting (`time_ago`, `format_duration`)](#timeutils-relative-durations)
-  - [ISO 8601 Formatting & Parsing (`to_iso8601`, `from_iso8601`)](#timeutils-iso8601)
-  - [Calendar Boundaries & Calculations (`start_of_day`, `days_between`, `is_weekend`)](#timeutils-calendar-boundaries)
-  - [Stopwatch Benchmarking (`Stopwatch`)](#timeutils-stopwatch)
+- **[`tomlutils`](#tomlutils-api)** — TOML configuration file and string parser with typed accessors
+- **[`validutils`](#validutils-api)** — High-speed input validation (email, URL, IPv4/IPv6, phone, UUID, range, JSON)
 
 #### 6. Security, Cryptography & Concurrency
-- **[`cryptoutils`](#cryptoutils-api)** — SHA-256, SHA-512, MD5, HMAC, AES-CBC, Bcrypt, UUID v4, secure tokens
-  - [Cryptographic Hashing (`sha256`, `sha512`, `md5`, `hmac_sha256`)](#cryptoutils-hashing)
-  - [Hex & Base64 / Base64URL Encoding & Decoding](#cryptoutils-encoding)
-  - [UUID v4 Generation & Secure Random Tokens](#cryptoutils-uuid-tokens)
+
 - **[`asyncutils`](#asyncutils-api)** — Order-preserving parallel map/filter/each, WaitGroup, WorkerPool
-  - [1. Parallel Collections (`parallel_map`, `parallel_filter`, `parallel_each`)](#1-parallel-collections)
-  - [2. WaitGroup Synchronization (`WaitGroup`)](#2-waitgroup-synchronization)
-  - [3. Bounded Worker Pool (`WorkerPool`)](#3-worker-pool)
+  - [Parallel Collections](#1-parallel-collections)
+  - [WaitGroup Synchronization](#2-waitgroup-synchronization)
+  - [Worker Pool](#3-worker-pool)
+- **[`cryptoutils`](#cryptoutils-api)** — SHA-256, SHA-512, MD5, HMAC, AES-CBC, Bcrypt, UUID v4, secure tokens
 - **[`flowutils`](#flowutils-api)** — Traffic control & resilience: RateLimiter, CircuitBreaker, Debouncer, retry
-  - [1. Rate Limiting (Token Bucket) (`RateLimiter`)](#1-rate-limiting-token-bucket)
-  - [2. Circuit Breaker (`CircuitBreaker`)](#2-circuit-breaker)
-  - [3. Exponential Backoff Retry (`retry[T]`)](#3-exponential-backoff-retry)
-  - [4. Event Debouncer (`Debouncer`)](#4-debouncer)
+  - [Rate Limiting (Token Bucket)](#1-rate-limiting-token-bucket)
+  - [Circuit Breaker](#2-circuit-breaker)
+  - [Exponential Backoff Retry](#3-exponential-backoff-retry)
+  - [Debouncer](#4-debouncer)
 
 #### 7. Graphics, Color Theory & Archives
-- **[`colorutils`](#colorutils-api)** — HEX/RGB/HSL conversion, color harmonies, WCAG 2.1 contrast audits, Truecolor
-  - [Color Data Structures (`RGB`, `HSL`)](#colorutils-data-structures)
-  - [1. Color Space Conversions (HEX, RGB, HSL)](#1-color-space-conversions)
-  - [2. Color Transformations & Harmonies (Lighten, Darken, Invert, Blend)](#2-color-transformations--harmonies)
-  - [3. WCAG 2.1 Accessibility & Contrast](#3-wcag-21-accessibility--contrast)
-  - [4. Terminal Truecolor (24-bit ANSI) Formatting](#4-terminal-truecolor-24-bit-ansi-formatting)
-- **[`compressutils`](#compressutils-api)** — Fast Gzip, Zlib, Deflate, and Zstandard compression/decompression
-  - [Multi-Codec Compression (Gzip, Zlib, Deflate, Zstandard)](#compressutils-compression)
+
 - **[`archiveutils`](#archiveutils-api)** — Zip archive creation, extraction, recursive directory compression
-  - [Archive Data Structures (`ZipEntry`)](#archiveutils-data-structures)
-  - [Archive Functions (Create, Extract, List, Read Entries)](#archiveutils-functions)
+  - [Archive Data Structures](#archiveutils-data-structures)
+  - [Archive Functions](#archiveutils-functions)
+- **[`colorutils`](#colorutils-api)** — HEX/RGB/HSL conversion, color harmonies, WCAG 2.1 contrast audits, Truecolor
+  - [Color Data Structures](#colorutils-data-structures)
+  - [Color Space Conversions](#1-color-space-conversions)
+  - [Color Transformations & Harmonies](#2-color-transformations--harmonies)
+  - [WCAG 2.1 Accessibility & Contrast](#3-wcag-21-accessibility--contrast)
+  - [Terminal Truecolor (24-bit ANSI)](#4-terminal-truecolor-24-bit-ansi-formatting)
+- **[`compressutils`](#compressutils-api)** — Fast Gzip, Zlib, Deflate, and Zstandard compression/decompression
 - **[`tarutils`](#tarutils-api)** — In-memory and on-disk TAR archive creation, unpacking, directory archiving
-  - [POSIX ustar TAR Archive Management](#tarutils-management)
 - **[`mockutils`](#mockutils-api)** — Synthetic mock data generator (users, emails, phones, IPv4, URLs, lorem)
-  - [Mock Data Structures (`MockUser`)](#mockutils-data-structures)
-  - [Lorem Text & Sentence Generators](#mockutils-lorem)
-  - [Synthetic Data Generators (User, Email, Phone, IP, URL)](#mockutils-synthetic)
+  - [Mock Data Structures](#mockutils-data-structures)
+  - [Mock Functions](#mockutils-functions)
 
 #### 8. Advanced Extensions
-- **[Advanced Additions & Enhancements](#advanced-additions--enhancements)** — Cross-cutting extensions across utility modules
-  - [`cliutils` Clipboard Functions](#advanced-cliutils-clipboard)
-  - [`cryptoutils` Advanced Cryptography (AES-256-CBC, Bcrypt)](#advanced-cryptoutils-crypto)
-  - [`netutils` Framed TCP & UDP](#advanced-netutils-framed-tcp-udp)
-  - [`structutils` Advanced Generic Collections (`GenericSet`, `BloomFilter`, `BST`, `LinkedList`)](#advanced-structutils-collections)
-  - [`sysutils` Runtime Info & Shell Piping](#advanced-sysutils-runtime-info)
-  - [`timeutils` Benchmarking Suite (`BenchmarkResult`)](#advanced-timeutils-benchmarking)
+
+- **[Advanced Additions & Enhancements](#advanced-additions--enhancements)** — System clipboard, symmetric AES-CBC, Bcrypt hashing, secure entropy, fast non-cryptographic hashes
 
 ---
 
-<a id="fileutils-api"></a>
+<a id="fileutils"></a><a id="fileutils-api"></a>
+
+# fileutils API
+
+**Plain-language purpose:** Use these tools to create, read, copy, rename, and organize files. The examples start with simple text and move to saved lists, settings, and JSON data.
+
 Import statement:
+
 ```v
 import fileutils
 ```
 
 <a id="struct-helpers"></a>
+
 ## Struct helpers
 
 ### `save_struct_array_to_file[T](path string, data []T) !`
@@ -255,12 +223,12 @@ person := fileutils.load_struct_from_file[Person]('data/person.json')!
 println('Loaded single person: ${person.name}, age ${person.age}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="text-file-helpers"></a>
+
 ## Text File Helpers
 
 ### `append_line_to_file(path string, line string) !`
@@ -312,12 +280,12 @@ for line in lines {
 }
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="map--config-helpers"></a><a id="map-config-helpers"></a>
+
 ## Map & Config Helpers
 
 ### `save_map_to_file[K, V](path string, data map[K]V) !`
@@ -362,12 +330,12 @@ config := fileutils.load_config_from_file('app.conf', defaults)!
 println('Server running on ${config['host']}:${config['port']} (${config['mode']} mode)')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="directory-helpers"></a>
+
 ## Directory Helpers
 
 ### `ensure_dir_exists(path string) !`
@@ -379,12 +347,12 @@ Creates the parent directory for a given file path if it doesn't already exist.
 fileutils.ensure_dir_exists('exports/2026/report.csv')!
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="json-helpers"></a>
+
 ## JSON Helpers
 
 ### `write_json_file[T](path string, data T) !`
@@ -436,12 +404,12 @@ fileutils.append_json_line('events.ndjson', event1)!
 fileutils.append_json_line('events.ndjson', event2)!
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="file-operations--csv-helpers"></a><a id="file-operations-csv-helpers"></a>
+
 ## File Operations & CSV Helpers
 
 ### `copy_file(src string, dst string) !`
@@ -607,25 +575,28 @@ dir := fileutils.temp_dir('build')!
 defer { fileutils.remove_dir(dir) or {} }
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="sqliteutils"></a><a id="sqliteutils-api"></a>
+
 # sqliteutils API
 
+**Plain-language purpose:** Use these tools to keep information in a small local database, such as a contact list or app settings. The examples show how to open a database, add records, find them, change them, and keep the data safe.
+
 Import statement:
+
 ```v
 import sqliteutils
 ```
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="connection--database-management"></a><a id="connection-database-management"></a>
+
 ## Connection & Database Management
 
 ### `open_db(path string) !sqlite.DB`
@@ -709,6 +680,7 @@ sqliteutils.exec_sql_params(mut db, 'INSERT INTO users (name, email) VALUES (?, 
 ### Security & SQL Injection Prevention Helpers
 
 #### `sanitize_identifier(name string) !string` & `is_valid_identifier(name string) bool`
+
 Strictly validates table and column identifiers against injection. Valid identifiers must start with an ASCII letter or underscore, contain only `[a-zA-Z0-9_-]`, and be under 128 characters.
 
 ```v
@@ -720,6 +692,7 @@ assert sqliteutils.is_valid_identifier('users; DROP TABLE users;') == false
 ```
 
 #### `escape_string(s string) string`
+
 Doubles single quotes according to SQL-92 standards (`'` -> `''`). Parameterized queries should always be favored over string interpolation.
 
 ```v
@@ -727,6 +700,7 @@ safe_literal := sqliteutils.escape_string("O'Connor") // "O''Connor"
 ```
 
 #### `sanitize_sql_type(sql_type string) !string`
+
 Validates that a SQL column type definition (e.g. `TEXT`, `INTEGER NOT NULL`, `VARCHAR(255)`) contains only safe characters, balanced delimiters, no comment injection (`--`, `/*`), and no statement separators (`;`).
 
 ```v
@@ -734,11 +708,13 @@ safe_type := sqliteutils.sanitize_sql_type('VARCHAR(255) NOT NULL')!
 ```
 
 #### `apply_secure_pragmas(mut db sqlite.DB) !`
+
 Applies recommended security and durability settings to SQLite:
+
 - `foreign_keys = ON`: Validates foreign key constraints.
 - `trusted_schema = OFF`: Blocks malicious triggers/views in untrusted schemas.
 - `cell_size_check = ON`: Detects B-tree corruption early.
-*(Note: `open_db` calls `apply_secure_pragmas` automatically).*
+  _(Note: `open_db` calls `apply_secure_pragmas` automatically)._
 
 ---
 
@@ -747,9 +723,13 @@ Applies recommended security and durability settings to SQLite:
 High-level helpers that eliminate manual SQL query construction for common CRUD operations:
 
 #### `insert_row(mut db sqlite.DB, table_name string, data map[string]string) !i64`
+
 Safely inserts a record with automatic parameter binding. Returns the newly generated `last_insert_rowid`.
 
 ```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);')!
+
 new_id := sqliteutils.insert_row(mut db, 'users', {
     'name':  'Alice'
     'email': 'alice@example.com'
@@ -758,9 +738,14 @@ println('Created user id: ${new_id}')
 ```
 
 #### `select_rows(mut db sqlite.DB, table_name string, columns []string, where_clause string, where_params []string) ![]map[string]string`
+
 Safely queries rows with bound filter parameters.
 
 ```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');")!
+
 users := sqliteutils.select_rows(mut db, 'users', ['id', 'name', 'email'], 'name = ?', ['Alice'])!
 for u in users {
     println('Found: ${u["name"]} (${u["email"]})')
@@ -768,18 +753,28 @@ for u in users {
 ```
 
 #### `update_rows(mut db sqlite.DB, table_name string, data map[string]string, where_clause string, where_params []string) !`
+
 Safely updates records with bound parameters.
 
 ```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com');")!
+
 sqliteutils.update_rows(mut db, 'users', {
     'email': 'alice.new@example.com'
 }, 'id = ?', ['1'])!
 ```
 
 #### `delete_rows(mut db sqlite.DB, table_name string, where_clause string, where_params []string) !`
+
 Safely deletes records matching parameterized criteria.
 
 ```v
+mut db := sqliteutils.open_db(':memory:')!
+sqliteutils.exec_sql(mut db, 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);')!
+sqliteutils.exec_sql(mut db, "INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com');")!
+
 sqliteutils.delete_rows(mut db, 'users', 'id = ?', ['1'])!
 ```
 
@@ -829,12 +824,12 @@ count := sqliteutils.count_rows(mut db, 'users')!
 println('Total rows in users table: ${count}') // Output: 2
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="key-value-store-helpers"></a>
+
 ## Key-Value Store Helpers
 
 ### `create_kv_table(mut db sqlite.DB, table_name string) !`
@@ -914,12 +909,12 @@ println('Theme setting: ${all_settings['theme']}')
 println('Language setting: ${all_settings['lang']}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="struct--json-document-store-helpers"></a><a id="struct-json-document-store-helpers"></a>
+
 ## Struct & JSON Document Store Helpers
 
 ### `create_json_store(mut db sqlite.DB, table_name string) !`
@@ -1014,12 +1009,12 @@ sqliteutils.create_json_store(mut db, 'products')!
 sqliteutils.delete_struct(mut db, 'products', 'p1')!
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="dynamic-query--transaction-helpers"></a><a id="dynamic-query-transaction-helpers"></a>
+
 ## Dynamic Query & Transaction Helpers
 
 ### `query_maps(mut db sqlite.DB, query string) ![]map[string]string`
@@ -1131,12 +1126,12 @@ sqliteutils.execute_batch_params(mut db, batch)!
 println('Parameterized batch executed!')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="schema--ddl-helpers"></a>
+
 ## Schema / DDL Helpers
 
 ### `drop_table(mut db sqlite.DB, table_name string, force bool) !`
@@ -1229,12 +1224,12 @@ counts := sqliteutils.table_row_counts(mut db)!
 println(counts) // {'a': 2, 'b': 0}
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="extended-key-value-helpers"></a>
+
 ## Extended Key-Value Helpers
 
 ### `kv_exists(mut db sqlite.DB, table_name string, key string) !bool`
@@ -1296,12 +1291,12 @@ sqliteutils.clear_kv(mut db, 'session')!
 println(sqliteutils.count_rows(mut db, 'session')!) // 0
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="extended-json-document-store-helpers"></a>
+
 ## Extended JSON Document Store Helpers
 
 ### `struct_exists(mut db sqlite.DB, table_name string, id string) !bool`
@@ -1365,12 +1360,12 @@ ids := sqliteutils.list_struct_ids(mut db, 'posts')!
 println('Post IDs: ${ids}') // ['post_1', 'post_2']
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="query-helpers"></a>
+
 ## Query Helpers
 
 ### `query_scalar(mut db sqlite.DB, query string, params []string) !string`
@@ -1419,15 +1414,16 @@ sqliteutils.with_transaction(mut db, fn [mut db] () ! {
 println(sqliteutils.get_kv(mut db, 'state', 'status')!) // ok
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="column-management-helpers"></a>
+
 ## Column Management Helpers
 
 > **SQLite version requirements**
+>
 > - `add_column` / `add_columns` — SQLite 3.1+ (always available)
 > - `rename_column` — SQLite 3.25+ (September 2018)
 > - `drop_column` / `drop_columns` — SQLite 3.35+ (March 2021)
@@ -1566,22 +1562,26 @@ for col in schema {
 // amount (REAL) pk=0 notnull=0
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="strutils"></a><a id="strutils-api"></a>
+
 # strutils API
 
+**Plain-language purpose:** Use these tools to clean up and reshape text, such as turning a title into a web address, masking private information, or comparing two words. Each example starts with ordinary text and shows the transformed result.
+
 Import statement:
+
 ```v
 import strutils
 ```
 
-<a id="strutils-case-conversions"></a><a id="case-conversions"></a>
 ### `to_snake_case(s string) string`
+
 Converts camelCase, PascalCase, kebab-case, or spaced strings into snake_case.
+
 ```v
 assert strutils.to_snake_case('helloWorld') == 'hello_world'
 ```
@@ -1589,7 +1589,9 @@ assert strutils.to_snake_case('helloWorld') == 'hello_world'
 ---
 
 ### `to_kebab_case(s string) string`
+
 Converts a string into kebab-case.
+
 ```v
 assert strutils.to_kebab_case('hello_world') == 'hello-world'
 ```
@@ -1597,7 +1599,9 @@ assert strutils.to_kebab_case('hello_world') == 'hello-world'
 ---
 
 ### `to_camel_case(s string) string`
+
 Converts snake_case or kebab-case into camelCase.
+
 ```v
 assert strutils.to_camel_case('hello_world') == 'helloWorld'
 ```
@@ -1605,7 +1609,9 @@ assert strutils.to_camel_case('hello_world') == 'helloWorld'
 ---
 
 ### `to_pascal_case(s string) string`
+
 Converts snake_case or kebab-case into PascalCase.
+
 ```v
 assert strutils.to_pascal_case('hello_world') == 'HelloWorld'
 ```
@@ -1613,16 +1619,19 @@ assert strutils.to_pascal_case('hello_world') == 'HelloWorld'
 ---
 
 ### `to_title_case(s string) string`
+
 Capitalizes the first letter of each word in a string.
+
 ```v
 assert strutils.to_title_case('hello world_again') == 'Hello World Again'
 ```
 
 ---
 
-<a id="strutils-formatting-masking"></a><a id="formatting-masking"></a>
 ### `slugify(s string) string`
+
 Converts arbitrary text into a URL-friendly slug.
+
 ```v
 assert strutils.slugify('Hello World! 2026') == 'hello-world-2026'
 ```
@@ -1630,7 +1639,9 @@ assert strutils.slugify('Hello World! 2026') == 'hello-world-2026'
 ---
 
 ### `truncate(s string, max_len int, suffix string) string`
+
 Truncates a string to a given rune length, appending suffix if truncated.
+
 ```v
 assert strutils.truncate('Hello, world!', 8, '...') == 'Hello...'
 ```
@@ -1638,7 +1649,9 @@ assert strutils.truncate('Hello, world!', 8, '...') == 'Hello...'
 ---
 
 ### `truncate_words(s string, max_words int, suffix string) string`
+
 Shortens a string to the specified number of words.
+
 ```v
 assert strutils.truncate_words('The quick brown fox jumps', 3, '...') == 'The quick brown...'
 ```
@@ -1646,7 +1659,9 @@ assert strutils.truncate_words('The quick brown fox jumps', 3, '...') == 'The qu
 ---
 
 ### `pad_left(s string, width int, pad_char string) string`
+
 Pads the beginning of a string until it reaches the specified width. Automatically utilizes V's built-in string interpolation formatting (`${s:(width)}`) when padding with spaces on ASCII.
+
 ```v
 assert strutils.pad_left('42', 5, '0') == '00042'
 ```
@@ -1654,7 +1669,9 @@ assert strutils.pad_left('42', 5, '0') == '00042'
 ---
 
 ### `pad_right(s string, width int, pad_char string) string`
+
 Pads the end of a string until it reaches the specified width. Automatically utilizes V's built-in string interpolation formatting (`${s:-(width)}`) when padding with spaces on ASCII.
+
 ```v
 assert strutils.pad_right('hi', 5, ' ') == 'hi   '
 ```
@@ -1662,7 +1679,9 @@ assert strutils.pad_right('hi', 5, ' ') == 'hi   '
 ---
 
 ### `pad_center(s string, width int, pad_char string) string`
+
 Centers a string with symmetric padding.
+
 ```v
 assert strutils.pad_center('v', 5, '=') == '==v=='
 ```
@@ -1670,7 +1689,9 @@ assert strutils.pad_center('v', 5, '=') == '==v=='
 ---
 
 ### `mask(s string, unmasked_start int, unmasked_end int, mask_char string) string`
+
 Masks characters between unmasked start and end counts.
+
 ```v
 assert strutils.mask('1234567890', 2, 2, '*') == '12******90'
 ```
@@ -1678,7 +1699,9 @@ assert strutils.mask('1234567890', 2, 2, '*') == '12******90'
 ---
 
 ### `mask_email(email string) string`
+
 Redacts user portion of an email address for privacy.
+
 ```v
 assert strutils.mask_email('john.doe@example.com') == 'j******e@example.com'
 ```
@@ -1686,16 +1709,19 @@ assert strutils.mask_email('john.doe@example.com') == 'j******e@example.com'
 ---
 
 ### `random_string(len int, charset string) string`
+
 Generates a random string of the specified length using custom runes from `charset`.
+
 ```v
 custom_code := strutils.random_string(8, 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789')
 ```
 
 ---
 
-<a id="strutils-random-extraction"></a><a id="random-extraction"></a>
 ### `random_alphanumeric(len int) string`
+
 Generates a random string containing letters (A-Z, a-z) and digits (0-9).
+
 ```v
 token := strutils.random_alphanumeric(16)
 ```
@@ -1703,7 +1729,9 @@ token := strutils.random_alphanumeric(16)
 ---
 
 ### `random_hex(len int) string`
+
 Generates a random lowercase hexadecimal string of length `len`.
+
 ```v
 hex_token := strutils.random_hex(32)
 ```
@@ -1711,7 +1739,9 @@ hex_token := strutils.random_hex(32)
 ---
 
 ### `extract_between(s string, start_delim string, end_delim string) ?string`
+
 Extracts the substring bounded between two delimiter strings, or returns `none` if not found.
+
 ```v
 tag := strutils.extract_between('<title>Home Page</title>', '<title>', '</title>') or { '' }
 assert tag == 'Home Page'
@@ -1719,9 +1749,10 @@ assert tag == 'Home Page'
 
 ---
 
-<a id="strutils-cleansing-distance"></a><a id="cleansing-distance"></a>
 ### `strip_html_tags(s string) string`
+
 Strips HTML/XML tags from a string.
+
 ```v
 assert strutils.strip_html_tags('<p>Hello <b>World</b>!</p>') == 'Hello World!'
 ```
@@ -1729,7 +1760,9 @@ assert strutils.strip_html_tags('<p>Hello <b>World</b>!</p>') == 'Hello World!'
 ---
 
 ### `collapse_whitespace(s string) string`
+
 Replaces multiple consecutive whitespace characters with a single space.
+
 ```v
 assert strutils.collapse_whitespace('  hello   world  ') == 'hello world'
 ```
@@ -1737,7 +1770,9 @@ assert strutils.collapse_whitespace('  hello   world  ') == 'hello world'
 ---
 
 ### `word_wrap(s string, width int) string`
+
 Wraps a string so that lines do not exceed the specified width.
+
 ```v
 wrapped := strutils.word_wrap('one two three four five', 10)
 ```
@@ -1745,7 +1780,9 @@ wrapped := strutils.word_wrap('one two three four five', 10)
 ---
 
 ### `levenshtein_distance(a string, b string) int`
+
 Calculates the minimum edit operations (insertions, deletions, substitutions) between two strings using V's built-in standard library `strings.levenshtein_distance`.
+
 ```v
 assert strutils.levenshtein_distance('kitten', 'sitting') == 3
 ```
@@ -1753,27 +1790,33 @@ assert strutils.levenshtein_distance('kitten', 'sitting') == 3
 ---
 
 ### `similarity(a string, b string) f64`
+
 Returns similarity score between 0.0 (completely different) and 1.0 (identical).
+
 ```v
 score := strutils.similarity('hello', 'hallo') // ~0.8
 ```
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="sliceutils"></a><a id="sliceutils-api"></a>
+
 # sliceutils API
 
+**Plain-language purpose:** Use these tools to work with lists of things, such as names, numbers, or files. The examples show common list tasks like removing duplicates, grouping items, filtering choices, and changing their order.
+
 Import statement:
+
 ```v
 import sliceutils
 ```
 
-<a id="sliceutils-set-operations"></a><a id="set-operations"></a>
 ### `unique[T](arr []T) []T`
+
 Returns a new slice with duplicate items removed, preserving order of first appearance.
+
 ```v
 assert sliceutils.unique([1, 2, 2, 3, 1]) == [1, 2, 3]
 ```
@@ -1781,7 +1824,9 @@ assert sliceutils.unique([1, 2, 2, 3, 1]) == [1, 2, 3]
 ---
 
 ### `intersection[T](a []T, b []T) []T`
+
 Returns elements present in both slices.
+
 ```v
 assert sliceutils.intersection([1, 2, 3], [2, 3, 4]) == [2, 3]
 ```
@@ -1789,7 +1834,9 @@ assert sliceutils.intersection([1, 2, 3], [2, 3, 4]) == [2, 3]
 ---
 
 ### `difference[T](a []T, b []T) []T`
+
 Returns elements in `a` that are not present in `b`.
+
 ```v
 assert sliceutils.difference([1, 2, 3], [2, 3, 4]) == [1]
 ```
@@ -1797,16 +1844,19 @@ assert sliceutils.difference([1, 2, 3], [2, 3, 4]) == [1]
 ---
 
 ### `union_slices[T](a []T, b []T) []T`
+
 Combines two slices and returns only unique elements.
+
 ```v
 assert sliceutils.union_slices([1, 2], [2, 3]) == [1, 2, 3]
 ```
 
 ---
 
-<a id="sliceutils-transformation-partitioning"></a><a id="transformation-partitioning"></a>
 ### `chunk[T](arr []T, size int) [][]T`
+
 Splits a slice into smaller chunks of given size.
+
 ```v
 chunks := sliceutils.chunk([1, 2, 3, 4, 5], 2) // [[1, 2], [3, 4], [5]]
 ```
@@ -1814,7 +1864,9 @@ chunks := sliceutils.chunk([1, 2, 3, 4, 5], 2) // [[1, 2], [3, 4], [5]]
 ---
 
 ### `flatten[T](matrix [][]T) []T`
+
 Flattens a 2D slice into a 1D slice.
+
 ```v
 assert sliceutils.flatten([[1, 2], [3, 4]]) == [1, 2, 3, 4]
 ```
@@ -1822,7 +1874,9 @@ assert sliceutils.flatten([[1, 2], [3, 4]]) == [1, 2, 3, 4]
 ---
 
 ### `find_index[T](arr []T, pred fn (item T) bool) ?int`
+
 Finds the index of the first item matching the predicate, or `none`.
+
 ```v
 idx := sliceutils.find_index([10, 20, 30], fn (x int) bool { return x > 15 }) // 1
 ```
@@ -1830,7 +1884,9 @@ idx := sliceutils.find_index([10, 20, 30], fn (x int) bool { return x > 15 }) //
 ---
 
 ### `partition[T](arr []T, pred fn (item T) bool) ([]T, []T)`
+
 Partitions elements into two slices: those matching the predicate and those that do not.
+
 ```v
 evens, odds := sliceutils.partition([1, 2, 3, 4], fn (x int) bool { return x % 2 == 0 })
 ```
@@ -1838,16 +1894,19 @@ evens, odds := sliceutils.partition([1, 2, 3, 4], fn (x int) bool { return x % 2
 ---
 
 ### `count[T](arr []T, target T) int`
+
 Counts how many times `target` appears in the slice.
+
 ```v
 assert sliceutils.count(['a', 'b', 'a'], 'a') == 2
 ```
 
 ---
 
-<a id="sliceutils-randomization-sampling"></a><a id="randomization-sampling"></a>
 ### `sample[T](arr []T, n int) []T`
+
 Randomly selects `n` items without replacement.
+
 ```v
 picks := sliceutils.sample([1, 2, 3, 4, 5], 3)
 ```
@@ -1855,7 +1914,9 @@ picks := sliceutils.sample([1, 2, 3, 4, 5], 3)
 ---
 
 ### `shuffle[T](mut arr []T)`
+
 Randomly shuffles slice elements in-place using Fisher-Yates.
+
 ```v
 mut items := [1, 2, 3, 4, 5]
 sliceutils.shuffle(mut items)
@@ -1863,9 +1924,10 @@ sliceutils.shuffle(mut items)
 
 ---
 
-<a id="sliceutils-numeric-aggregations"></a><a id="numeric-aggregations"></a>
 ### `sum_int(arr []int) int` and `average_int(arr []int) f64`
+
 Calculates the arithmetic sum and average of integer slices.
+
 ```v
 assert sliceutils.sum_int([1, 2, 3, 4]) == 10
 assert sliceutils.average_int([1, 2, 3, 4]) == 2.5
@@ -1874,7 +1936,9 @@ assert sliceutils.average_int([1, 2, 3, 4]) == 2.5
 ---
 
 ### `min_int(arr []int) ?int` and `max_int(arr []int) ?int`
+
 Finds the minimum and maximum integers in a slice, returning `none` if empty.
+
 ```v
 nums := [42, 10, 88, 3]
 min_val := sliceutils.min_int(nums) or { 0 } // 3
@@ -1884,7 +1948,9 @@ max_val := sliceutils.max_int(nums) or { 0 } // 88
 ---
 
 ### `sum_f64(arr []f64) f64` and `average_f64(arr []f64) f64`
+
 Calculates the arithmetic sum and average of floating point slices.
+
 ```v
 floats := [1.5, 2.5, 3.5, 4.5]
 assert sliceutils.sum_f64(floats) == 12.0
@@ -1894,29 +1960,35 @@ assert sliceutils.average_f64(floats) == 3.0
 ---
 
 ### `min_f64(arr []f64) ?f64` and `max_f64(arr []f64) ?f64`
+
 Finds the minimum and maximum floating point values in a slice, returning `none` if empty.
+
 ```v
 floats := [1.5, -2.5, 8.2]
 min_f := sliceutils.min_f64(floats) or { 0.0 } // -2.5
 max_f := sliceutils.max_f64(floats) or { 0.0 } // 8.2
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="envutils"></a><a id="envutils-api"></a>
+
 # envutils API
 
+**Plain-language purpose:** Use these tools to read app settings that live outside your program, such as a port number, a feature switch, or a secret key. The examples show safe defaults so your app can still run when a setting is absent.
+
 Import statement:
+
 ```v
 import envutils
 ```
 
-<a id="envutils-typed-access"></a><a id="typed-access"></a>
 ### `get_str(key string, default_val string) string`
+
 Gets environment variable string, or fallback if unset/empty.
+
 ```v
 host := envutils.get_str('APP_HOST', 'localhost')
 ```
@@ -1924,7 +1996,9 @@ host := envutils.get_str('APP_HOST', 'localhost')
 ---
 
 ### `get_int(key string, default_val int) int`
+
 Gets environment variable parsed as integer, or fallback.
+
 ```v
 port := envutils.get_int('PORT', 8080)
 ```
@@ -1932,7 +2006,9 @@ port := envutils.get_int('PORT', 8080)
 ---
 
 ### `get_bool(key string, default_val bool) bool`
+
 Interprets `'true'`, `'1'`, `'yes'`, `'on'` as `true`, and `'false'`, `'0'`, `'no'`, `'off'` as `false`.
+
 ```v
 debug := envutils.get_bool('DEBUG', false)
 ```
@@ -1940,16 +2016,19 @@ debug := envutils.get_bool('DEBUG', false)
 ---
 
 ### `get_required(key string) !string`
+
 Returns the environment variable value or errors if missing/empty.
+
 ```v
 secret := envutils.get_required('JWT_SECRET')!
 ```
 
 ---
 
-<a id="envutils-dotenv"></a><a id="dotenv-loading"></a>
 ### `load_dotenv(path string) !map[string]string`
+
 Loads a `.env` file into the OS environment and returns the parsed key-value map.
+
 ```v
 env_vars := envutils.load_dotenv('.env')!
 println('Loaded ${env_vars.len} variables')
@@ -1957,18 +2036,26 @@ println('Loaded ${env_vars.len} variables')
 
 ---
 
-### `load_dotenv_auto() bool`
-Searches for `.env` in the current working directory, loading it into the environment if present. Returns `true` if found and loaded, `false` otherwise.
+### `load_dotenv_auto() !map[string]string`
+
+Searches for `.env` in the current working directory or a parent directory, loading it into the environment if found. Returns the parsed values or an error when no `.env` file exists.
+
 ```v
-if envutils.load_dotenv_auto() {
-    println('Successfully loaded .env from working directory')
+env_vars := envutils.load_dotenv_auto() or {
+    println('No .env file found')
+    map[string]string{}
+}
+if env_vars.len > 0 {
+    println('Successfully loaded ${env_vars.len} variables')
 }
 ```
 
 ---
 
 ### `parse_dotenv_content(content string) map[string]string`
+
 Parses raw `.env` formatted content string without touching the OS environment.
+
 ```v
 env_map := envutils.parse_dotenv_content('PORT=8080\nDEBUG=true\nDB_PASS="secret #1"')
 assert env_map['PORT'] == '8080'
@@ -1977,29 +2064,35 @@ assert env_map['DB_PASS'] == 'secret #1'
 
 ---
 
-<a id="envutils-variable-expansion"></a><a id="variable-expansion"></a>
 ### `expand_env(input string) string`
-Substitutes `$VAR` and `${VAR}` in strings with current environment values.
-```v
-path := envutils.expand_env('/home/${USER}/config')
-```
 
+Substitutes `$VAR` and `${VAR}` in strings with current environment values.
+
+```v
+path := envutils.expand_env('/home/\${USER}/config')
+println(path)
+```
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="cryptoutils"></a><a id="cryptoutils-api"></a>
+
 # cryptoutils API
 
+**Plain-language purpose:** Use these tools to protect information, check whether text was changed, create secure random values, and handle passwords. Treat the sample keys and passwords as demonstrations only; real secret values should stay outside source code.
+
 Import statement:
+
 ```v
 import cryptoutils
 ```
 
-<a id="cryptoutils-hashing"></a><a id="cryptographic-hashing"></a>
 ### `sha256(s string) string` & `sha256_hex(s string) string`
+
 Returns the hexadecimal SHA-256 hash.
+
 ```v
 hash := cryptoutils.sha256('hello')
 assert cryptoutils.sha256_hex('hello') == hash
@@ -2008,7 +2101,9 @@ assert cryptoutils.sha256_hex('hello') == hash
 ---
 
 ### `sha512(s string) string` & `sha512_hex(s string) string`
+
 Returns the hexadecimal SHA-512 hash.
+
 ```v
 hash := cryptoutils.sha512('hello')
 assert cryptoutils.sha512_hex('hello') == hash
@@ -2017,7 +2112,9 @@ assert cryptoutils.sha512_hex('hello') == hash
 ---
 
 ### `md5(s string) string` & `md5_hex(s string) string`
+
 Returns the hexadecimal MD5 hash.
+
 ```v
 hash := cryptoutils.md5('hello')
 assert cryptoutils.md5_hex('hello') == hash
@@ -2025,9 +2122,10 @@ assert cryptoutils.md5_hex('hello') == hash
 
 ---
 
-<a id="cryptoutils-encoding"></a><a id="hex-base64-encoding"></a>
 ### `to_hex(b []u8) string` & `from_hex(s string) ![]u8`
+
 Encodes bytes into hexadecimal and decodes hexadecimal strings back to raw bytes.
+
 ```v
 raw := [u8(0xde), u8(0xad), u8(0xbe), u8(0xef)]
 hex_str := cryptoutils.to_hex(raw) // "deadbeef"
@@ -2037,7 +2135,9 @@ bytes := cryptoutils.from_hex('deadbeef')!
 ---
 
 ### `hmac_sha256(key string, data string) string`
+
 Computes HMAC-SHA256 digest in hex.
+
 ```v
 mac := cryptoutils.hmac_sha256('my-secret-key', 'message payload')
 ```
@@ -2045,7 +2145,9 @@ mac := cryptoutils.hmac_sha256('my-secret-key', 'message payload')
 ---
 
 ### `base64_encode(s string) string` & `base64_decode(s string) !string`
+
 Standard Base64 encoding and decoding.
+
 ```v
 encoded := cryptoutils.base64_encode('Hello V')
 decoded := cryptoutils.base64_decode(encoded)!
@@ -2054,16 +2156,19 @@ decoded := cryptoutils.base64_decode(encoded)!
 ---
 
 ### `base64_url_encode(s string) string` & `base64_url_decode(s string) !string`
+
 URL-safe Base64 encoding and decoding without padding.
+
 ```v
 url_safe := cryptoutils.base64_url_encode('Hello V')
 ```
 
 ---
 
-<a id="cryptoutils-uuid-tokens"></a><a id="uuid-tokens"></a>
 ### `uuid_v4() string` & `is_valid_uuid(s string) bool`
+
 Generates RFC 4122 v4 UUIDs and validates UUID format strings.
+
 ```v
 id := cryptoutils.uuid_v4()
 assert cryptoutils.is_valid_uuid(id)
@@ -2072,28 +2177,34 @@ assert cryptoutils.is_valid_uuid(id)
 ---
 
 ### `secure_token(byte_count int) string`
+
 Generates a cryptographically random hexadecimal string of given byte length.
+
 ```v
 token := cryptoutils.secure_token(32) // 64 hex characters
 ```
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="timeutils"></a><a id="timeutils-api"></a>
+
 # timeutils API
 
+**Plain-language purpose:** Use these tools to display dates and durations in forms people can read, calculate time differences, and measure how long work takes. The examples use the current clock so you can see familiar dates and times.
+
 Import statement:
+
 ```v
 import timeutils
 import time
 ```
 
-<a id="timeutils-relative-durations"></a><a id="relative-durations"></a>
 ### `time_ago(t time.Time) string`
+
 Returns a human-friendly relative time string.
+
 ```v
 println(timeutils.time_ago(time.now().add(-120 * time.second))) // "2 minutes ago"
 ```
@@ -2101,7 +2212,9 @@ println(timeutils.time_ago(time.now().add(-120 * time.second))) // "2 minutes ag
 ---
 
 ### `time_until(t time.Time) string`
+
 Returns a human-friendly relative time string for future timestamps.
+
 ```v
 println(timeutils.time_until(time.now().add(7200 * time.second))) // "in 2 hours"
 ```
@@ -2109,16 +2222,19 @@ println(timeutils.time_until(time.now().add(7200 * time.second))) // "in 2 hours
 ---
 
 ### `format_duration(d time.Duration) string`
+
 Formats duration into readable units (e.g. `'250ms'`, `'2m 5s'`, `'1h 10m'`).
+
 ```v
 println(timeutils.format_duration(125 * time.second)) // "2m 5s"
 ```
 
 ---
 
-<a id="timeutils-iso8601"></a><a id="iso8601"></a>
 ### `to_iso8601(t time.Time) string` & `from_iso8601(s string) !time.Time`
+
 Serializes and parses ISO 8601 / RFC 3339 timestamps.
+
 ```v
 iso := timeutils.to_iso8601(time.now())
 parsed := timeutils.from_iso8601(iso)!
@@ -2126,9 +2242,10 @@ parsed := timeutils.from_iso8601(iso)!
 
 ---
 
-<a id="timeutils-calendar-boundaries"></a><a id="calendar-boundaries"></a>
 ### `start_of_day(t time.Time) time.Time` & `end_of_day(t time.Time) time.Time`
+
 Returns 00:00:00.000 or 23:59:59.999 for the given date.
+
 ```v
 today_start := timeutils.start_of_day(time.now())
 ```
@@ -2136,7 +2253,9 @@ today_start := timeutils.start_of_day(time.now())
 ---
 
 ### `days_between(a time.Time, b time.Time) int`
+
 Returns the absolute number of calendar days between two timestamps.
+
 ```v
 t1 := time.now()
 t2 := t1.add(86400 * 5 * time.second)
@@ -2146,7 +2265,9 @@ assert timeutils.days_between(t1, t2) == 5
 ---
 
 ### `is_weekend(t time.Time) bool`
+
 Checks if `t` falls on Saturday or Sunday.
+
 ```v
 if timeutils.is_weekend(time.now()) {
     println('Weekend!')
@@ -2155,9 +2276,10 @@ if timeutils.is_weekend(time.now()) {
 
 ---
 
-<a id="timeutils-stopwatch"></a><a id="stopwatch"></a>
 ### `Stopwatch`
+
 High-resolution timer for benchmarks, latency tracking, and profiling.
+
 ```v
 mut sw := timeutils.new_stopwatch()
 println('Running: ${sw.is_running()}') // true
@@ -2172,22 +2294,26 @@ println('Duration: ${sw.elapsed()}')
 sw.reset()
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="httputils"></a><a id="httputils-api"></a>
+
 # httputils API
 
+**Plain-language purpose:** Use these tools to ask a website or web service for information, send information to it, and download files. Examples that include a web address need an internet connection and a real service that accepts the request.
+
 Import statement:
+
 ```v
 import httputils
 ```
 
-<a id="httputils-query-string"></a><a id="query-string"></a>
 ### `build_query_string(params map[string]string) string`
+
 Encodes parameter map into URL query string.
+
 ```v
 qs := httputils.build_query_string({ 'page': '1', 'search': 'vlang' }) // "page=1&search=vlang"
 ```
@@ -2195,16 +2321,19 @@ qs := httputils.build_query_string({ 'page': '1', 'search': 'vlang' }) // "page=
 ---
 
 ### `parse_query_string(query string) map[string]string`
+
 Parses query string into key-value map.
+
 ```v
 params := httputils.parse_query_string('?page=1&search=vlang')
 ```
 
 ---
 
-<a id="httputils-requests"></a><a id="http-requests"></a>
 ### `get_text(url string, headers map[string]string) !string`
+
 Fetches a URL and returns text body.
+
 ```v
 body := httputils.get_text('https://httpbin.org/get', {})!
 ```
@@ -2212,7 +2341,9 @@ body := httputils.get_text('https://httpbin.org/get', {})!
 ---
 
 ### `post_text(url string, body string, headers map[string]string) !string`
+
 Sends an HTTP POST request with raw text payload and returns the response body.
+
 ```v
 res := httputils.post_text('https://httpbin.org/post', 'hello world', {
     'Content-Type': 'text/plain'
@@ -2222,7 +2353,9 @@ res := httputils.post_text('https://httpbin.org/post', 'hello world', {
 ---
 
 ### `get_json[T](url string, headers map[string]string) !T`
+
 Fetches JSON endpoint and parses directly into struct `T` using `json2`.
+
 ```v
 struct UserInfo {
     id   int
@@ -2234,7 +2367,9 @@ user := httputils.get_json[UserInfo]('https://api.example.com/user/1', {})!
 ---
 
 ### `post_json[T, R](url string, body T, headers map[string]string) !R`
+
 Sends a JSON-serialized payload struct `T` via HTTP POST and parses the response into struct `R` using `json2`.
+
 ```v
 struct CreateUserReq {
     name  string
@@ -2252,18 +2387,20 @@ user_res := httputils.post_json[CreateUserReq, UserResponse]('https://api.exampl
 
 ---
 
-<a id="httputils-download"></a><a id="file-download"></a>
 ### `download_file(url string, dest_path string) !`
+
 Downloads a file directly to disk, creating parent folders automatically.
+
 ```v
 httputils.download_file('https://example.com/archive.zip', 'downloads/archive.zip')!
 ```
 
 ---
 
-<a id="httputils-retry"></a><a id="fetch-retry"></a>
 ### `fetch_with_retry(mut req http.Request, config RetryConfig) !http.Response`
+
 Executes an HTTP request with exponential backoff on network failures or 5xx server errors.
+
 ```v
 import net.http
 
@@ -2275,21 +2412,24 @@ res := httputils.fetch_with_retry(mut req, httputils.RetryConfig{
 })!
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="cliutils"></a><a id="cliutils-api"></a>
+
 # cliutils API
 
+**Plain-language purpose:** Use these tools to build friendlier terminal programs with prompts, menus, colored messages, progress indicators, and tables. Run interactive examples in a terminal where you can type an answer when asked.
+
 Import statement:
+
 ```v
 import cliutils
 ```
 
-<a id="cliutils-ansi-styling"></a><a id="ansi-styling"></a>
 ### ANSI Colors & Text Styles
+
 Zero external dependencies. Returns ANSI escape-coded strings for styled terminal output.
 
 ```v
@@ -2317,6 +2457,7 @@ println(cliutils.bold(cliutils.green('SUCCESS: All checks passed!')))
 ---
 
 ### `strip_ansi(s string) string`
+
 Removes all ANSI escape color and formatting codes from a string (ideal for writing clean log files).
 
 ```v
@@ -2329,10 +2470,10 @@ println(plain) // "Error 404: Not Found"
 
 ---
 
-<a id="cliutils-interactive-prompts"></a><a id="interactive-prompts"></a>
 ### Interactive Terminal Prompts
 
 #### `prompt(message string) string`
+
 Displays a text prompt and reads the user's line input.
 
 ```v
@@ -2343,6 +2484,7 @@ println('Creating project: ${name}')
 ```
 
 #### `prompt_confirm(message string, default_val bool) bool`
+
 Asks a yes/no question with a default fallback if the user presses Enter.
 
 ```v
@@ -2357,6 +2499,7 @@ if proceed {
 ```
 
 #### `prompt_select(message string, options []string) ?int`
+
 Presents a numbered list of choices to the user and returns the selected zero-based index.
 
 ```v
@@ -2372,10 +2515,10 @@ println('Selected: ${options[idx]}')
 
 ---
 
-<a id="cliutils-terminal-visualizations"></a><a id="terminal-visualizations"></a>
 ### Terminal Visualizations
 
 #### `ProgressBar`
+
 Interactive terminal ASCII progress bar with percentage and step indicators.
 
 ```v
@@ -2392,6 +2535,7 @@ println('')
 ```
 
 #### `sparkline(values []f64) string`
+
 Renders an in-line sparkline chart using UTF-8 block glyphs (` ▂▃▄▅▆▇█`).
 
 ```v
@@ -2402,6 +2546,7 @@ println('Network Activity: ' + cliutils.sparkline(history))
 ```
 
 #### `bar_chart(title string, items map[string]f64, max_width int) string`
+
 Generates a clean horizontal Unicode bar chart.
 
 ```v
@@ -2416,6 +2561,7 @@ println(chart)
 ```
 
 #### `gauge(label string, current f64, max f64, unit string) string`
+
 Generates a meter gauge with percentage calculation and status color badge (`[OK]`, `[WARN]`, `[CRITICAL]`).
 
 ```v
@@ -2426,6 +2572,7 @@ println(cliutils.gauge('CPU Load', 92.0, 100.0, '%'))
 ```
 
 #### `TreeNode`, `new_tree_node`, `add_child`, and `render_tree`
+
 Visualizes hierarchical directory trees, taxonomies, and nested data using Unicode branch glyphs (`├──`, `└──`, `│   `).
 
 ```v
@@ -2443,6 +2590,7 @@ println(cliutils.render_tree(&root))
 ```
 
 #### `diff_text(old_text string, new_text string) string` & `diff(old_text string, new_text string)`
+
 Generates and displays colorized line-by-line unified diffs with green additions and red deletions.
 
 ```v
@@ -2458,10 +2606,10 @@ println(diff_str)
 
 ---
 
-<a id="cliutils-presentation-layout"></a><a id="presentation-layout"></a>
 ### Presentation & Layout Components
 
 #### `banner(title string, subtitle string) string`
+
 Creates a stylish, framed header banner.
 
 ```v
@@ -2471,6 +2619,7 @@ println(cliutils.banner('ANTIGRAVITY CLI v2.0', 'High-Performance Developer Tool
 ```
 
 #### `panel(title string, content string) string` (or `card`)
+
 Renders a bordered box panel for notices, summaries, and cards.
 
 ```v
@@ -2480,6 +2629,7 @@ println(cliutils.panel('Service Status', 'API Gateway: Online\nLatency: 14ms\nUp
 ```
 
 #### `divider(ch rune, width int) string`
+
 Renders a horizontal rule across the terminal.
 
 ```v
@@ -2490,6 +2640,7 @@ println(cliutils.divider(`-`, 40))
 ```
 
 #### `badge(label string, value string, color_fn fn (string) string) string`
+
 Generates an inverted status badge tag.
 
 ```v
@@ -2501,10 +2652,10 @@ println(cliutils.badge('BUILD', 'PASSING', cliutils.green))
 
 ---
 
-<a id="cliutils-table-export"></a><a id="table-export"></a>
 ### Data Formatting & Table Export
 
 #### `table_to_markdown`, `table_to_csv`, `table_to_json`
+
 Serializes 2D table data into GitHub Flavored Markdown, RFC CSV, or JSON array format.
 
 ```v
@@ -2528,6 +2679,7 @@ println(cliutils.json_highlight(json_data))
 ```
 
 #### `json_highlight(json_str string) string`
+
 Adds syntax coloring (cyan keys, yellow values) to formatted JSON strings.
 
 ```v
@@ -2539,10 +2691,10 @@ println(cliutils.json_highlight(raw_json))
 
 ---
 
-<a id="cliutils-cli-tools"></a><a id="cli-tools"></a>
 ### CLI Tools: `FlagParser`, `Pipeline`, `Logger`
 
 #### `FlagParser` and `FlagDef`
+
 Ergonomic command-line flag and argument parser supporting string, int, bool, and float flags with automated `-h, --help` generation and positional argument extraction.
 
 ```v
@@ -2574,6 +2726,7 @@ fp.print_help()
 ```
 
 #### `Pipeline` and `PipelineStep`
+
 Task runner executing a multi-step sequential workflow composed of `PipelineStep` actions, halting on failure.
 
 ```v
@@ -2595,35 +2748,39 @@ println('Pipeline succeeded: ${success}')
 ```
 
 #### `Logger`
+
 Structured console logger supporting log level filtering (`debug`, `info`, `warn`, `error`).
 
 ```v
 import cliutils
 
-mut log := cliutils.new_logger(cliutils.LogLevel.info)
+mut log := cliutils.new_logger(cliutils.LogLevel.info, '')
 log.debug('Connecting to database...') // suppressed because level is info
 log.info('Server started on :8080')
 log.warn('Disk capacity above 80%')
 log.error('Failed to send webhook notification')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="sysutils"></a><a id="sysutils-api"></a>
+
 # sysutils API
 
+**Plain-language purpose:** Use these tools to learn about the computer running your program and to safely work with operating-system features. The examples may report different values on different computers, which is expected.
+
 Import statement:
+
 ```v
 import sysutils
 ```
 
-<a id="sysutils-hardware-telemetry"></a><a id="hardware-telemetry"></a>
 ### Hardware Telemetry & Probing
 
 #### `get_cpu_count() int` & `get_cpu_usage() f64`
+
 Retrieves logical CPU core count and current system CPU utilization percentage.
 
 ```v
@@ -2635,6 +2792,7 @@ println('CPU: ${cores} cores @ ${usage:.1f}% load')
 ```
 
 #### `get_load_averages() (f64, f64, f64)`
+
 Returns the 1-minute, 5-minute, and 15-minute system load averages.
 
 ```v
@@ -2645,6 +2803,7 @@ println('Load average: 1m=${l1:.2f}, 5m=${l5:.2f}, 15m=${l15:.2f}')
 ```
 
 #### `get_memory_stats() (u64, u64, f64)` & `get_swap_stats() (u64, u64, f64)`
+
 Returns `(total_bytes, used_bytes, used_percent)` for RAM and swap memory.
 
 ```v
@@ -2658,6 +2817,7 @@ println('Swap: ${used_swap / (1024 * 1024)} MB / ${total_swap / (1024 * 1024)} M
 ```
 
 #### `get_disk_stats(path string) (u64, u64, f64)`
+
 Returns `(total_bytes, used_bytes, used_percent)` for the filesystem containing the given path.
 
 ```v
@@ -2668,6 +2828,7 @@ println('Disk (/): ${used / (1024 * 1024 * 1024)} GB / ${total / (1024 * 1024 * 
 ```
 
 #### `get_battery_level() ?int`, `is_battery_charging() ?bool` & `get_uptime() i64`
+
 Queries laptop battery percentage, AC power/charging state, and system uptime in seconds.
 
 ```v
@@ -2682,6 +2843,7 @@ println('Uptime: ${uptime} seconds')
 ```
 
 #### `get_system_locale() string` & `get_os_theme() string`
+
 Detects user language/locale (e.g. `en_US.UTF-8`) and OS appearance mode (`"dark"` or `"light"`).
 
 ```v
@@ -2694,10 +2856,10 @@ println('System Locale: ${locale}, Theme: ${theme}')
 
 ---
 
-<a id="sysutils-process-security"></a><a id="process-security"></a>
 ### Process Security & Command Execution
 
 #### `exec_safe(cmd string, args []string) (string, int)`
+
 Executes external processes safely with separate argument vectors, preventing shell injection.
 
 ```v
@@ -2710,6 +2872,7 @@ if code == 0 {
 ```
 
 #### `exec_timeout(cmd string, timeout_ms i64) ExecTimeoutResult`
+
 Executes a command with a maximum time limit, returning structured output, exit code, and `timed_out` boolean flag.
 
 ```v
@@ -2724,6 +2887,7 @@ if res.timed_out {
 ```
 
 #### `exec_retry(cmd string, retries int, delay_ms int) ExecRetryResult`
+
 Runs an external command with automatic retries if non-zero exit code occurs, returning the final output, exit code, and number of attempts made.
 
 ```v
@@ -2734,6 +2898,7 @@ println('Attempts: ${retry_res.attempts}, Exit code: ${retry_res.exit_code}')
 ```
 
 #### `exec_or(cmd string, default_output string) string`
+
 Executes a command and returns `default_output` if execution fails or exits non-zero.
 
 ```v
@@ -2744,6 +2909,7 @@ println('Current branch: ${branch}')
 ```
 
 #### `quote_arg(arg string) string`, `quote_path(path string) string` & `sanitize_filename(name string) string`
+
 Quotes command-line arguments and paths (expanding `~`) to prevent shell injection, and cleans filename inputs from path traversal attacks.
 
 ```v
@@ -2755,6 +2921,7 @@ clean_name := sysutils.sanitize_filename('../../etc/passwd') // "passwd"
 ```
 
 #### `has_command(name string) bool`, `is_process_running(pid int) bool`, `kill_process(pid int) bool`, `get_command_path(name string) ?string`
+
 Checks command availability on system `$PATH`, checks if a PID is alive, terminates processes by PID, and finds binary locations.
 
 ```v
@@ -2770,6 +2937,7 @@ running := sysutils.is_process_running(os.getpid())
 ```
 
 #### `beep()`
+
 Produces an audible terminal bell alert (`\a`).
 
 ```v
@@ -2780,11 +2948,12 @@ sysutils.beep()
 
 ---
 
-<a id="sysutils-system-paths-clipboard"></a><a id="system-paths-clipboard"></a>
 ### Standard System Paths & Clipboard
 
 #### Application Directories
+
 Provides standard OS paths:
+
 - `get_app_config_dir(app_name string) string`
 - `get_app_data_dir(app_name string) string`
 - `get_app_data_path(app_name string, filename string) string`
@@ -2801,6 +2970,7 @@ println('Config file path: ${cfg_file}')
 ```
 
 #### User & System Directories
+
 - `get_user_home_dir() string`
 - `get_system_path(folder_name string) string` (`"desktop"`, `"documents"`, `"downloads"`, `"music"`, `"pictures"`, `"videos"`)
 - `resolve_user_path(path string) string` (expands `~/` to home directory)
@@ -2814,6 +2984,7 @@ println('Resolved path: ${expanded}')
 ```
 
 #### Clipboard & Notifications
+
 - `copy_to_clipboard(text string) !`
 - `get_clipboard_text() !string`
 - `notify(title string, message string)`
@@ -2831,21 +3002,24 @@ sysutils.notify('Build Complete', 'All 15 modules compiled successfully!')
 sysutils.say('Build finished successfully') or {}
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="netutils"></a><a id="netutils-api"></a>
+
 # netutils API
 
+**Plain-language purpose:** Use these tools to inspect network details, such as addresses and DNS servers, or check whether a network service can be reached. Results depend on your network connection and its security rules.
+
 Import statement:
+
 ```v
 import netutils
 ```
 
-<a id="netutils-connectivity-probing"></a><a id="connectivity-probing"></a>
 ### `is_online() bool`
+
 Checks whether active Internet connectivity is present.
 
 ```v
@@ -2859,6 +3033,7 @@ if netutils.is_online() {
 ```
 
 ### `ping_tcp_port(host string, port int, timeout_ms int) bool`
+
 Checks whether a remote or local TCP service is reachable within a timeout.
 
 ```v
@@ -2870,8 +3045,8 @@ if is_db_up {
 }
 ```
 
-<a id="netutils-ip-hardware-addresses"></a><a id="ip-addresses"></a>
 ### `get_local_ip() string` & `get_public_ip() !string`
+
 Resolves local subnet IP address (e.g. `192.168.1.50`) and queries external public IP.
 
 ```v
@@ -2883,6 +3058,7 @@ println('Local: ${local} | Public: ${public}')
 ```
 
 ### `get_mac_address() string` & `get_wifi_ssid() string`
+
 Queries host primary MAC address and connected Wi-Fi network SSID name.
 
 ```v
@@ -2893,8 +3069,8 @@ ssid := netutils.get_wifi_ssid()
 println('MAC: ${mac} | Wi-Fi: ${ssid}')
 ```
 
-<a id="netutils-dns-gateway"></a><a id="dns-gateway"></a>
 ### `get_dns_servers() []string` & `get_default_gateway() string`
+
 Returns configured DNS nameserver IPs and primary gateway IP.
 
 ```v
@@ -2906,6 +3082,7 @@ println('DNS: ${dns} | Gateway: ${gateway}')
 ```
 
 ### `get_listening_ports() []int`
+
 Scans and discovers currently listening TCP ports on the machine.
 
 ```v
@@ -2915,21 +3092,24 @@ ports := netutils.get_listening_ports()
 println('Active listening ports: ${ports}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="validutils"></a><a id="validutils-api"></a>
+
 # validutils API
 
+**Plain-language purpose:** Use these tools to check whether a value looks valid before your program relies on it, such as an email address, web address, phone number, or date. Examples show a valid value and, where useful, an invalid one.
+
 Import statement:
+
 ```v
 import validutils
 ```
 
-<a id="validutils-fast-data-validators"></a><a id="fast-validators"></a>
 ### Fast Data Validators
+
 All validators return boolean true/false for instant conditional checks.
 
 ```v
@@ -2966,21 +3146,24 @@ uuid_ok := validutils.validate_uuid('e74a81d1-4db5-4b06-a077-80f0c0576395') // t
 json_ok := validutils.validate_json('{"status": "ok", "code": 200}') // true
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="structutils"></a><a id="structutils-api"></a>
+
 # structutils API
 
+**Plain-language purpose:** Use these ready-made containers when a normal list is not the best fit, such as a queue for first-in-first-out work or a stack for last-in-first-out work. The examples add a few familiar values and then show how they are retrieved.
+
 Import statement:
+
 ```v
 import structutils
 ```
 
-<a id="structutils-stack"></a><a id="generic-stack"></a>
 ### Generic Stack: `SimpleStack[T]` (LIFO)
+
 Fast, thread-safe generic Last-In-First-Out stack.
 
 ```v
@@ -3000,8 +3183,8 @@ stack.clear()
 println('Is empty: ${stack.is_empty()}') // true
 ```
 
-<a id="structutils-queue"></a><a id="generic-queue"></a>
 ### Generic Queue: `SimpleQueue[T]` (FIFO)
+
 Generic First-In-First-Out queue.
 
 ```v
@@ -3017,8 +3200,8 @@ println('First out: ${first}')
 println('Next up: ${queue.peek() or { 0 }}') // 20
 ```
 
-<a id="structutils-ring-buffer"></a><a id="circular-ring-buffer"></a>
 ### Circular Ring Buffer: `SimpleRingBuffer[T]`
+
 Fixed-capacity circular buffer that automatically drops the oldest item when capacity is exceeded.
 
 ```v
@@ -3037,8 +3220,8 @@ println('Recent logs: ${ring.to_array()}')
 oldest := ring.pop() or { '' } // "log_2"
 ```
 
-<a id="structutils-min-heap"></a><a id="priority-queue"></a>
 ### Priority Queue: `SimpleMinHeap`
+
 Binary min-heap where lowest numerical values are popped with highest priority.
 
 ```v
@@ -3055,15 +3238,18 @@ val1 := heap.pop() or { 0.0 } // 3.0
 val2 := heap.pop() or { 0.0 } // 12.5
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="statutils"></a><a id="statutils-api"></a>
+
 # statutils API
 
+**Plain-language purpose:** Use these tools to make sense of a set of numbers, such as scores, prices, or measurements. The examples explain the usual summary questions: typical value, spread, trend, unusual values, and relationships between two lists.
+
 Import statement:
+
 ```v
 import statutils
 ```
@@ -3072,7 +3258,6 @@ High-performance statistical analysis, distribution modeling, regression, and da
 
 ---
 
-<a id="statutils-central-tendency"></a><a id="central-tendency"></a>
 ### 1. Measures of Central Tendency
 
 ```v
@@ -3103,7 +3288,6 @@ t_mean := statutils.stats_trimmed_mean(dataset, 0.1)!
 
 ---
 
-<a id="statutils-dispersion-spread"></a><a id="dispersion-spread"></a>
 ### 2. Measures of Dispersion & Spread
 
 ```v
@@ -3140,7 +3324,6 @@ mad := statutils.stats_median_abs_deviation(dataset)     // Median Absolute Devi
 
 ---
 
-<a id="statutils-distribution-shape"></a><a id="distribution-shape"></a>
 ### 3. Distribution Shape (Higher Moments)
 
 ```v
@@ -3157,7 +3340,6 @@ kurt := statutils.stats_kurtosis(dataset)
 
 ---
 
-<a id="statutils-bivariate-analysis"></a><a id="bivariate-analysis"></a>
 ### 4. Bivariate Analysis: Correlation & Linear Regression
 
 ```v
@@ -3186,7 +3368,6 @@ println('Correlation: ${reg.correlation:.4f}')
 
 ---
 
-<a id="statutils-probability-normalization"></a><a id="probability-normalization"></a>
 ### 5. Probability Distributions & Normalization
 
 ```v
@@ -3206,7 +3387,6 @@ normalized := statutils.stats_min_max_normalize([10.0, 20.0, 30.0]) // [0.0, 0.5
 
 ---
 
-<a id="statutils-outlier-detection"></a><a id="outlier-detection"></a>
 ### 6. Outlier Detection
 
 ```v
@@ -3225,7 +3405,6 @@ println('Z Outliers: ${z_outliers}')
 
 ---
 
-<a id="statutils-time-series"></a><a id="time-series"></a>
 ### 7. Time Series & Smoothing
 
 ```v
@@ -3243,7 +3422,6 @@ ema := statutils.stats_exponential_moving_average(series, 0.3)!
 
 ---
 
-<a id="statutils-summary-stats"></a><a id="summary-stats"></a>
 ### 8. Comprehensive Summary Profile (`SummaryStats`)
 
 ```v
@@ -3265,28 +3443,32 @@ println('Skewness:        ${summary.skewness:.2f}')
 println('Excess Kurtosis: ${summary.kurtosis:.2f}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="stateutils"></a><a id="stateutils-api"></a>
+
 # stateutils API
 
+**Plain-language purpose:** Use these tools to remember an app's choices between runs, such as a theme, volume, or window size. The examples show both a named data record and flexible key-value settings, saved safely to the standard app-data location.
+
 Import statement:
+
 ```v
 import stateutils
 ```
 
-<a id="stateutils-path-resolution"></a><a id="path-resolution"></a>
 ### OS-Recommended Path Resolution
 
 #### `get_app_dir(app_name string, loc StateLocation) string`
+
 Returns the OS-recommended directory for an application:
+
 - **macOS**: `~/Library/Application Support/<app_name>`
 - **Windows**: `%APPDATA%\<app_name>`
 - **Linux / BSD**: `$XDG_DATA_HOME/<app_name>` (fallback `~/.local/share/<app_name>`)
-Automatically creates the directory structure if missing.
+  Automatically creates the directory structure if missing.
 
 ```v
 import stateutils
@@ -3297,6 +3479,7 @@ println('App data dir: ${data_dir}')
 ```
 
 #### `get_state_path(app_name string, filename string, loc StateLocation) string`
+
 Resolves the complete absolute path for a state file in the recommended directory.
 
 ```v
@@ -3308,10 +3491,10 @@ println('State file path: ${path}')
 
 ---
 
-<a id="stateutils-direct-state-functions"></a><a id="direct-state-functions"></a>
 ### Direct State Functions
 
 #### `save_app_state[T](app_name string, filename string, state T) !`
+
 Atomically serializes and persists a struct to disk without risk of file corruption if interrupted.
 
 ```v
@@ -3326,25 +3509,39 @@ stateutils.save_app_state('my_app', 'prefs.json', UserPrefs{ theme: 'dark', soun
 ```
 
 #### `load_app_state[T](app_name string, filename string) !T`
+
 Loads and deserializes a struct from the recommended app data path.
 
 ```v
 import stateutils
+
+struct UserPrefs {
+    theme string
+    sound bool
+}
 
 prefs := stateutils.load_app_state[UserPrefs]('my_app', 'prefs.json')!
 println('Loaded theme: ${prefs.theme}')
 ```
 
 #### `load_app_state_or[T](app_name string, filename string, default_val T) T`
+
 Loads state if available, or gracefully falls back to `default_val` on error or missing file.
 
 ```v
 import stateutils
 
+struct UserPrefs {
+    theme string
+    sound bool
+}
+
 prefs := stateutils.load_app_state_or('my_app', 'prefs.json', UserPrefs{ theme: 'system', sound: false })
+println('Loaded theme: ${prefs.theme}')
 ```
 
 #### `app_state_exists(app_name string, filename string) bool` & `delete_app_state(app_name string, filename string) !`
+
 Checks for the presence of a state file or removes it.
 
 ```v
@@ -3357,7 +3554,6 @@ if stateutils.app_state_exists('my_app', 'prefs.json') {
 
 ---
 
-<a id="stateutils-appstatestore"></a><a id="appstatestore"></a>
 ### `AppStateStore[T]` - Managed Generic Store
 
 Manages in-memory state, atomic disk persistence, auto-saving, backups, and rollback. Created via `new_app_state` (default `state.json` in `.data`) or `new_app_state_with_file` for custom state filenames or `.config` locations.
@@ -3381,7 +3577,7 @@ mut store := stateutils.new_app_state[Settings]('my_app', Settings{
 })
 
 // Or custom filename & directory location:
-mut custom_store := stateutils.new_app_state_with_file[Settings]('my_app', 'workspace.json', Settings{}, .config)!
+mut custom_store := stateutils.new_app_state_with_file[Settings]('my_app', 'workspace.json', Settings{}, .config)
 
 // Access current state
 println('Window width: ${store.get().window_w}')
@@ -3408,7 +3604,6 @@ store.update(fn (mut s Settings) {
 
 ---
 
-<a id="stateutils-keyvaluestate"></a><a id="keyvaluestate"></a>
 ### `KeyValueState` - Dynamic App State
 
 For apps that need schema-free configuration and preferences. Created via `new_kv_state` or `new_kv_state_with_file`.
@@ -3420,7 +3615,7 @@ mut kv := stateutils.new_kv_state('my_app')
 kv.auto_save = true
 
 // Or custom file/location:
-mut custom_kv := stateutils.new_kv_state_with_file('my_app', 'tokens.json', .config)!
+mut custom_kv := stateutils.new_kv_state_with_file('my_app', 'tokens.json', .config)
 
 // Typed setters & getters with fallbacks
 kv.set_str('current_profile', 'guest')!
@@ -3443,15 +3638,18 @@ kv.clear()!
 kv.reset()! // clears memory and deletes state file from disk
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="cacheutils"></a><a id="cacheutils-api"></a>
+
 # cacheutils API
 
+**Plain-language purpose:** Use these tools to temporarily keep frequently used results in memory so repeat work is faster. The examples show two rules for discarding old data: least recently used and a fixed time limit.
+
 Import statement:
+
 ```v
 import cacheutils
 import time
@@ -3460,6 +3658,7 @@ import time
 High-performance, in-memory caching data structures featuring O(1) Least-Recently-Used (LRU) evictions and entry-level Time-To-Live (TTL) expiration policies.
 
 <a id="1-lru-least-recently-used-cache"></a>
+
 ## 1. LRU (Least-Recently-Used) Cache
 
 ### `LRUCache[T]`
@@ -3518,12 +3717,12 @@ val := cacheutils.get_or_set_lru[string](mut user_cache, 'config:profile', fn ()
 println('Retrieved: ${val}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="2-ttl-time-to-live-cache"></a>
+
 ## 2. TTL (Time-To-Live) Cache
 
 ### `TTLCache[T]`
@@ -3588,15 +3787,18 @@ data := cacheutils.get_or_set_ttl[string](mut api_cache, 'api:rates', fn () !str
 println('Rates: ${data}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="semverutils"></a><a id="semverutils-api"></a>
+
 # semverutils API
 
+**Plain-language purpose:** Use these tools to understand software version labels such as `1.4.2`, compare releases, and decide whether a version matches a requirement. The examples break a version into its meaningful parts before making a decision.
+
 Import statement:
+
 ```v
 import semverutils
 ```
@@ -3604,23 +3806,25 @@ import semverutils
 Complete semantic version parsing, comparison, and range requirement matching conforming strictly to the [SemVer 2.0.0](https://semver.org/) specification.
 
 <a id="semverutils-data-structures"></a>
+
 ## Data Structures
 
 ### `SemVer`
 
 Represents a parsed semantic version:
+
 - `major`: int
 - `minor`: int
 - `patch`: int
 - `prerelease`: string (e.g. `alpha.1`, `beta`, `rc.2`)
 - `build`: string (e.g. `build.2026`, `sha.123abc`)
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="semverutils-functions--methods"></a><a id="semverutils-functions-methods"></a>
+
 ## Functions & Methods
 
 ### `parse(raw string) !SemVer`
@@ -3700,6 +3904,7 @@ println(v_pre.str()) // "1.2.3-beta.1"
 ### `satisfies(ver SemVer, requirement string) !bool`
 
 Tests whether a `SemVer` satisfies a version range requirement. Supports:
+
 - Caret ranges (`^1.2.3`): Compatible non-breaking updates within the major version.
 - Tilde ranges (`~1.2.3`): Patch-level updates within the minor version.
 - Comparisons: `>=`, `<=`, `>`, `<`, `=`
@@ -3717,15 +3922,18 @@ println(semverutils.satisfies(v, '>=1.0.0 <2.0.0')!) // true
 println(semverutils.satisfies(v, '^2.0.0')!) // false
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="flowutils"></a><a id="flowutils-api"></a>
+
 # flowutils API
 
+**Plain-language purpose:** Use these tools to keep a program calm under pressure: limit repeated actions, retry temporary failures, avoid repeatedly calling a broken service, and wait until rapid changes settle down.
+
 Import statement:
+
 ```v
 import flowutils
 import time
@@ -3734,6 +3942,7 @@ import time
 Resilience and traffic control primitives: Token Bucket rate limiting, Circuit Breaker state machine, exponential backoff retries, and call debouncing.
 
 <a id="1-rate-limiting-token-bucket"></a>
+
 ## 1. Rate Limiting (Token Bucket)
 
 ### `RateLimiter`
@@ -3773,12 +3982,12 @@ limiter.wait()!
 limiter.reset()
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="2-circuit-breaker"></a>
+
 ## 2. Circuit Breaker
 
 ### `CircuitBreaker`
@@ -3817,12 +4026,12 @@ println('State: ${cb.get_state()}') // .closed, .open, or .half_open
 cb.reset()
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="3-exponential-backoff-retry"></a>
+
 ## 3. Exponential Backoff Retry
 
 ### `retry[T](attempts int, base_delay time.Duration, factor f64, max_delay time.Duration, action fn () !T) !T`
@@ -3842,12 +4051,12 @@ res := flowutils.retry[string](4, 50 * time.millisecond, 2.0, 1 * time.second, f
 println(res)
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="4-debouncer"></a>
+
 ## 4. Debouncer
 
 ### `Debouncer`
@@ -3875,15 +4084,18 @@ if debouncer.can_trigger() {
 debouncer.reset()
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="templateutils"></a><a id="templateutils-api"></a>
+
 # templateutils API
 
+**Plain-language purpose:** Use these tools to fill a reusable piece of text with your own names, dates, and values. The examples start with a message containing placeholders and show how a completed message is produced.
+
 Import statement:
+
 ```v
 import templateutils
 ```
@@ -3891,6 +4103,7 @@ import templateutils
 Fast, lightweight string templating with fallback default values, custom resolver callbacks, and ANSI markdown rendering for terminal interfaces.
 
 <a id="templateutils-functions"></a>
+
 ## Functions
 
 ### `render_template(tpl string, vars map[string]string) string`
@@ -3935,35 +4148,38 @@ println(rendered)
 
 ---
 
-<a id="templateutils-markdown-ansi"></a><a id="markdown-ansi"></a>
 ### `render_markdown_ansi(markdown string) string`
 
 Renders CommonMark markdown subsets into styled ANSI terminal output, transforming:
+
 - Headings (`#`, `##`, `###`) into bold underlined headers
 - `**bold**` into bold ANSI text
 - `*italic*` into italic ANSI text
 - `` `code` `` into inverted/colored code text
-- Code fences (```` ``` ````) into indented blocks
+- Code fences (` ``` `) into indented blocks
 - Blockquotes (`> `) into styled callout quotes
 - Bullet lists (`- ` or `* `) into clean bullet markers
 
-```v
+````v
 import templateutils
 
 md := '# Installation Guide\nTo install `vlang_utils`, run:\n```\nv install codecaine.vlang_utils\n```\n> **Note:** Requires V 0.4+.'
 
 println(templateutils.render_markdown_ansi(md))
-```
-
+````
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="colorutils"></a><a id="colorutils-api"></a>
+
 # colorutils API
 
+**Plain-language purpose:** Use these tools to convert between color formats, choose related colors, and check whether text is easy to read against its background. The examples use familiar hexadecimal color codes such as `#ff0000` for red.
+
 Import statement:
+
 ```v
 import colorutils
 ```
@@ -3971,11 +4187,13 @@ import colorutils
 Comprehensive color conversions (HEX, RGB, HSL), color theory transformations (lighten, darken, invert, blend, grayscale), WCAG 2.1 accessibility auditing (relative luminance, contrast ratio, AA/AAA compliance), and 24-bit truecolor ANSI terminal styling.
 
 <a id="colorutils-data-structures"></a>
+
 ## Data Structures
 
 ### `RGB`
 
 Represents an 8-bit per channel Red-Green-Blue color:
+
 - `r`: u8
 - `g`: u8
 - `b`: u8
@@ -3985,17 +4203,18 @@ Represents an 8-bit per channel Red-Green-Blue color:
 ### `HSL`
 
 Represents Hue (0.0 to 360.0°), Saturation (0.0 to 1.0), and Lightness (0.0 to 1.0):
+
 - `h`: f64
 - `s`: f64
 - `l`: f64
 - `(c HSL) str() string`: Formats color as `hsl(h, s%, l%)`.
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="1-color-space-conversions"></a>
+
 ## 1. Color Space Conversions
 
 ### `hex_to_rgb(hex_str string) !RGB`
@@ -4042,12 +4261,12 @@ back_rgb := colorutils.hsl_to_rgb(hsl)
 println(back_rgb.str()) // "rgb(255, 0, 0)"
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="2-color-transformations--harmonies"></a><a id="2-color-transformations-harmonies"></a>
+
 ## 2. Color Transformations & Harmonies
 
 ### `lighten(c RGB, percent f64) RGB` & `darken(c RGB, percent f64) RGB`
@@ -4102,12 +4321,12 @@ c := colorutils.RGB{255, 200, 50}
 gray := colorutils.grayscale(c)
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="3-wcag-21-accessibility--contrast"></a><a id="3-wcag-21-accessibility-contrast"></a>
+
 ## 3. WCAG 2.1 Accessibility & Contrast
 
 ### `luminance(c RGB) f64`
@@ -4141,6 +4360,7 @@ println('Contrast: ${ratio:.1f}:1') // "Contrast: 21.0:1"
 ### `is_accessible(foreground RGB, background RGB, level string) bool`
 
 Audits whether foreground and background colors meet WCAG contrast thresholds:
+
 - `"AA"`: Standard text (minimum ratio 4.5:1)
 - `"AAA"`: Enhanced contrast (minimum ratio 7.0:1)
 - `"AA_large"`: Large text and UI graphics (minimum ratio 3.0:1)
@@ -4155,12 +4375,12 @@ println('Meets AA standard text: ${colorutils.is_accessible(fg, bg, "AA")}')
 println('Meets AAA enhanced text: ${colorutils.is_accessible(fg, bg, "AAA")}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="4-terminal-truecolor-24-bit-ansi-formatting"></a>
+
 ## 4. Terminal Truecolor (24-bit ANSI) Formatting
 
 ### `fg_rgb(text string, c RGB) string` & `bg_rgb(text string, c RGB) string`
@@ -4182,15 +4402,18 @@ badge := colorutils.bg_rgb(colorutils.fg_rgb(' SUCCESS ', white), colorutils.RGB
 println(badge)
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="archiveutils"></a><a id="archiveutils-api"></a>
+
 # archiveutils API
 
+**Plain-language purpose:** Use these tools to put files into a ZIP archive or unpack a ZIP archive later. The examples distinguish between creating an archive, seeing what is inside it, and restoring files to a folder.
+
 Import statement:
+
 ```v
 import archiveutils
 ```
@@ -4198,22 +4421,24 @@ import archiveutils
 Ergonomic Zip archive creation, extraction, recursive directory bundling, and in-memory file inspection built directly on V's native `compress.szip` engine.
 
 <a id="archiveutils-data-structures"></a>
+
 ## Data Structures
 
 ### `ZipEntry`
 
 Represents an individual file or directory entry inside a zip archive:
+
 - `name`: string
 - `size`: u64
 - `is_dir`: bool
 - `crc32`: u32
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="archiveutils-functions"></a>
+
 ## Functions
 
 ### `is_valid_zip(path string) bool`
@@ -4299,15 +4524,18 @@ text := archiveutils.read_entry_string('dist/source.zip', 'README.md')!
 println('Readme preview:\n${text[..100]}...')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="asyncutils"></a><a id="asyncutils-api"></a>
+
 # asyncutils API
 
+**Plain-language purpose:** Use these tools to let several independent jobs happen at the same time, such as processing many files. The examples show the work to do, wait until it finishes, and keep results in a predictable order.
+
 Import statement:
+
 ```v
 import asyncutils
 import time
@@ -4316,6 +4544,7 @@ import time
 High-throughput, deterministic concurrency abstractions: order-preserving parallel collections (`parallel_map`, `parallel_filter`, `parallel_each`), `WaitGroup` synchronization, and bounded `WorkerPool`.
 
 <a id="1-parallel-collections"></a>
+
 ## 1. Parallel Collections
 
 ### `parallel_map[T, R](items []T, worker_count int, mapper fn (T) R) []R`
@@ -4369,12 +4598,12 @@ asyncutils.parallel_each[string](urls, 3, fn (url string) {
 })
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="2-waitgroup-synchronization"></a>
+
 ## 2. WaitGroup Synchronization
 
 ### `WaitGroup`
@@ -4405,12 +4634,12 @@ wg.wait()
 println('All tasks completed!')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="3-worker-pool"></a>
+
 ## 3. Worker Pool
 
 ### `WorkerPool`
@@ -4440,15 +4669,18 @@ for i in 0 .. 10 {
 pool.wait_all()
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="regexutils"></a><a id="regexutils-api"></a>
+
 # regexutils API
 
+**Plain-language purpose:** Use these tools to find, check, split, or replace patterns inside text. A pattern is a compact search rule; the examples pair each rule with ordinary sample text so you can see what it matches.
+
 Import statement:
+
 ```v
 import regexutils
 ```
@@ -4456,21 +4688,23 @@ import regexutils
 Ergonomic, high-level regular expression helpers eliminating boilerplate around regex queries, group indexes, and match boundaries.
 
 <a id="regexutils-data-structures"></a>
+
 ## Data Structures
 
 ### `Match`
 
 Represents a matched substring and its span:
+
 - `text`: string
 - `start`: int
 - `end`: int
-
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="regexutils-functions"></a>
+
 ## Functions
 
 ### `is_match(pattern string, text string) bool`
@@ -4568,15 +4802,18 @@ parts := regexutils.split(r'\s*,\s*', 'apple, banana , cherry,date')
 println(parts) // ['apple', 'banana', 'cherry', 'date']
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="mockutils"></a><a id="mockutils-api"></a>
+
 # mockutils API
 
+**Plain-language purpose:** Use these tools to make believable sample names, emails, addresses, and other test data without using real people's information. The examples generate one kind of placeholder value at a time.
+
 Import statement:
+
 ```v
 import mockutils
 ```
@@ -4584,11 +4821,13 @@ import mockutils
 Rapid prototyping, testing, and mock data generation wrapping V's native `strings.lorem` and pseudo-random generators.
 
 <a id="mockutils-data-structures"></a>
+
 ## Data Structures
 
 ### `MockUser`
 
 Represents a synthetic user profile:
+
 - `id`: int
 - `name`: string
 - `email`: string
@@ -4596,15 +4835,14 @@ Represents a synthetic user profile:
 - `ip`: string
 - `role`: string
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="mockutils-functions"></a>
+
 ## Functions
 
-<a id="mockutils-lorem"></a><a id="lorem-generators"></a>
 ### `lorem_text(paragraphs int, sentences int, words int) string`
 
 Generates structured multi-paragraph pseudo-random placeholder text.
@@ -4634,7 +4872,6 @@ println(sentence)
 
 ---
 
-<a id="mockutils-synthetic"></a><a id="synthetic-generators"></a>
 ### Synthetic Data Generators
 
 - `mock_first_name() string`: Returns a realistic first name.
@@ -4662,24 +4899,24 @@ for u in test_users {
 }
 ```
 
-
-
-
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="logutils"></a><a id="logutils-api"></a>
+
 # logutils API
 
+**Plain-language purpose:** Use these tools to leave a clear record of what your program is doing, especially when something goes wrong. The examples show message levels so important warnings stand out from routine notes.
+
 Import statement:
+
 ```v
 import logutils
 ```
 
-<a id="logutils-logger"></a><a id="logger-config"></a>
 ### `LoggerConfig` & `Logger`
+
 Configures structured, level-filtered logging to console and disk.
 
 - `LogLevel`: `.debug`, `.info`, `.warn`, `.error`, `.fatal`
@@ -4709,21 +4946,24 @@ logger.error('Database connection timeout')
 logger.fatal('Fatal startup panic averted')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="tomlutils"></a><a id="tomlutils-api"></a>
+
 # tomlutils API
 
+**Plain-language purpose:** Use these tools to read TOML settings files, which are human-friendly text files for app configuration. The examples show a short configuration and then retrieve values by their descriptive names.
+
 Import statement:
+
 ```v
 import tomlutils
 ```
 
-<a id="tomlutils-tomldoc"></a><a id="tomldoc-parsing"></a>
 ### `TomlDoc` & Parsing Functions
+
 High-level querying and configuration loading for TOML documents.
 
 - `parse(text string) !TomlDoc`
@@ -4765,21 +5005,24 @@ tags := doc.get_strings('database.tags')
 println('${title}: ${server}:${port}, max=${max_conn}, tags=${tags}')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="htmlutils"></a><a id="htmlutils-api"></a>
+
 # htmlutils API
 
+**Plain-language purpose:** Use these tools to inspect and clean up web-page markup. The examples show how to find a heading or paragraph, read its text, and safely handle special characters such as `&` and `<`.
+
 Import statement:
+
 ```v
 import htmlutils
 ```
 
-<a id="htmlutils-htmldoc"></a><a id="htmldoc-manipulation"></a>
 ### `HtmlDoc`, `HtmlNode`, & HTML Manipulation
+
 DOM querying, text extraction, escaping, unescaping, and tag stripping.
 
 - `HtmlNode`: `tag string`, `id string`, `classes []string`, `attributes map[string]string`, `text string`
@@ -4815,21 +5058,24 @@ plain := htmlutils.strip_tags('<b>Bold</b> and <i>Italic</i>')
 println(plain) // "Bold and Italic"
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="bitutils"></a><a id="bitutils-api"></a>
+
 # bitutils API
 
+**Plain-language purpose:** Use these tools when you need compact on/off flags or binary values. The examples use a small set of switches, then show how to turn one on, off, or combine several permissions.
+
 Import statement:
+
 ```v
 import bitutils
 ```
 
-<a id="bitutils-bitset"></a><a id="bitset-arithmetic"></a>
 ### `BitSet` & Bitwise Arithmetic
+
 Compact boolean bit manipulation, Hamming weight (popcount), and flag bitmasks.
 
 - `new_bitset(size int) BitSet`
@@ -4873,21 +5119,24 @@ perms = bitutils.clear_flag(perms, flag_read)
 perms = bitutils.toggle_flag(perms, flag_write)
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="compressutils"></a><a id="compressutils-api"></a>
+
 # compressutils API
 
+**Plain-language purpose:** Use these tools to make data smaller for storage or transfer and restore it later without losing information. The examples compress the same text with several common formats and then decompress it again.
+
 Import statement:
+
 ```v
 import compressutils
 ```
 
-<a id="compressutils-compression"></a><a id="multi-codec-compression"></a>
 ### Multi-Codec Compression (Gzip, Zlib, Deflate, Zstandard)
+
 Byte slice and string compression and decompression across all major standard compression codecs.
 
 - `gzip_compress(data []u8) ![]u8`, `gzip_decompress(data []u8) ![]u8`
@@ -4940,22 +5189,25 @@ ratio := compressutils.compression_ratio(payload.len, uni_c.len)
 println('Zstandard version: ${zstd_v}, ratio: ${ratio:.1f}%')
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="tarutils"></a><a id="tarutils-api"></a>
+
 # tarutils API
 
+**Plain-language purpose:** Use these tools to create and unpack TAR archives, a common way to bundle files on Unix-like systems. The examples cover both in-memory data and archive files stored on disk.
+
 Import statement:
+
 ```v
 import tarutils
 ```
 
-<a id="tarutils-management"></a><a id="tar-management"></a>
 ### POSIX ustar TAR Archive Management
-Creating, packing, inspecting, and extracting  archives in pure V.
+
+Creating, packing, inspecting, and extracting archives in pure V.
 
 - `TarEntry`: `name string`, `size int`, `is_dir bool`, `data []u8`
 - `pack_bytes(entries []TarEntry) []u8`
@@ -4983,16 +5235,16 @@ content := tarutils.read_tar_file('backup.tar', 'file1.txt') or { '' }
 tarutils.extract_tar('backup.tar', './output_dir') or { panic(err) }
 ```
 
-
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
 <a id="advanced-additions--enhancements"></a><a id="advanced-additions-enhancements"></a>
+
 # Advanced Additions & Enhancements
 
-<a id="advanced-cliutils-clipboard"></a><a id="clipboard-functions"></a>
 ### `cliutils` Clipboard Functions
+
 ```v
 import cliutils
 
@@ -5003,8 +5255,8 @@ if cliutils.is_clipboard_available() {
 }
 ```
 
-<a id="advanced-cryptoutils-crypto"></a><a id="advanced-cryptography"></a>
 ### `cryptoutils` Advanced Cryptography
+
 ```v
 import cryptoutils
 
@@ -5024,7 +5276,7 @@ ok := cryptoutils.bcrypt_verify('user_password', hash)
 random_hex := cryptoutils.secure_random_hex(16) or { '' }
 
 // Fast non-cryptographic hashes
-f32 := cryptoutils.fnv1a_32('string to hash')
+fnv32 := cryptoutils.fnv1a_32('string to hash')
 c32 := cryptoutils.crc32_hash('string to hash')
 
 // Asymmetric Ed25519 digital signatures
@@ -5033,8 +5285,8 @@ sig := cryptoutils.ed25519_sign(priv_k, 'message'.bytes()) or { panic(err) }
 valid := cryptoutils.ed25519_verify(pub_k, 'message'.bytes(), sig)
 ```
 
-<a id="advanced-netutils-framed-tcp-udp"></a><a id="framed-tcp-udp"></a>
 ### `netutils` Framed TCP & UDP
+
 ```v
 import netutils
 import net
@@ -5048,8 +5300,8 @@ reply := netutils.read_framed_msg(mut conn, 8192) or { panic(err) }
 netutils.send_udp('127.0.0.1', 9001, 'UDP Packet'.bytes()) or { panic(err) }
 ```
 
-<a id="advanced-structutils-collections"></a><a id="generic-collections"></a>
 ### `structutils` Advanced Generic Collections (`GenericSet`, `BloomFilter`, `BinarySearchTree`, `SinglyLinkedList`, `DoublyLinkedList`)
+
 ```v
 import structutils
 
@@ -5094,8 +5346,8 @@ popped_head := dll.pop_front()
 var_dll := structutils.DoublyLinkedList[string]{}
 ```
 
-<a id="advanced-sysutils-runtime-info"></a><a id="runtime-info"></a>
 ### `sysutils` Runtime Info (`RuntimeInfo`) & Shell Piping
+
 ```v
 import sysutils
 
@@ -5107,8 +5359,8 @@ piped_output := sysutils.pipe_commands('echo "antigravity toolkit"', 'grep "anti
 println(piped_output)
 ```
 
-<a id="advanced-timeutils-benchmarking"></a><a id="benchmarking-suite"></a>
 ### `timeutils` Benchmarking Suite (`BenchmarkResult`)
+
 ```v
 import timeutils
 
@@ -5124,3 +5376,4 @@ var_bm := timeutils.BenchmarkResult{ name: 'demo', iterations: 10 }
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
+```
