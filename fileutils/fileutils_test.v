@@ -189,3 +189,83 @@ fn test_append_json_line() {
 
 	os.rm('/tmp/jsonl') or {}
 }
+
+fn test_file_and_dir_operations() {
+	src := '/tmp/fileutils_test_src.txt'
+	dst := '/tmp/nested_dir/fileutils_test_dst.txt'
+	write_text_file(src, 'Hello V!') or { panic(err) }
+
+	copy_file(src, dst) or { panic(err) }
+	assert os.exists(dst)
+	assert (read_text_file(dst) or { '' }) == 'Hello V!'
+
+	mv_dst := '/tmp/nested_dir/fileutils_test_moved.txt'
+	move(dst, mv_dst) or { panic(err) }
+	assert !os.exists(dst)
+	assert os.exists(mv_dst)
+
+	remove_file(src) or { panic(err) }
+	assert !os.exists(src)
+
+	remove_dir('/tmp/nested_dir') or { panic(err) }
+	assert !os.exists('/tmp/nested_dir')
+}
+
+fn test_file_metadata_and_listing() {
+	test_dir := '/tmp/fileutils_listing_test'
+	os.mkdir_all(test_dir) or { panic(err) }
+	f1 := '${test_dir}/doc.txt'
+	f2 := '${test_dir}/data.json'
+	write_text_file(f1, 'test content') or { panic(err) }
+	write_text_file(f2, '{"key": "val"}') or { panic(err) }
+
+	all_files := list_files(test_dir, false) or { panic(err) }
+	assert all_files.len == 2
+
+	json_files := list_files_with_ext(test_dir, 'json', false) or { panic(err) }
+	assert json_files.len == 1
+	assert json_files[0].ends_with('data.json')
+
+	sz := file_size(f1) or { 0 }
+	assert sz > 0
+
+	human := file_size_human(f1) or { '' }
+	assert human.contains('B')
+
+	assert file_extension('/path/to/archive.tar.gz') == 'gz'
+	assert file_extension('/path/to/image.png') == 'png'
+	assert file_stem('/path/to/image.png') == 'image'
+
+	remove_dir(test_dir) or {}
+}
+
+fn test_csv_operations() {
+	csv_path := '/tmp/test_table.csv'
+	rows := [
+		['id', 'name', 'notes'],
+		['1', 'Alice', 'Hello, "world"'],
+		['2', 'Bob', 'Simple note'],
+	]
+	write_csv(csv_path, rows, `,`) or { panic(err) }
+	read_rows := read_csv(csv_path, `,`) or { panic(err) }
+
+	assert read_rows.len == 3
+	assert read_rows[0][0] == 'id'
+	assert read_rows[1][1] == 'Alice'
+	assert read_rows[2][1] == 'Bob'
+
+	remove_file(csv_path) or {}
+}
+
+fn test_temp_helpers() {
+	tf := temp_file('prefix', '.tmp') or { '' }
+	assert tf.len > 0
+	assert os.exists(tf)
+	remove_file(tf) or {}
+
+	td := temp_dir('my_temp') or { '' }
+	assert td.len > 0
+	assert os.is_dir(td)
+	remove_dir(td) or {}
+}
+

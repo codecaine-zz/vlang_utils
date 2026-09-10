@@ -25,3 +25,7 @@ bin/
 
 # Ignore installed modules through `v install --local`:
 modules/
+
+# Demo output directories
+.*_demo/
+

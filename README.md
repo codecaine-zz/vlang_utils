@@ -1,181 +1,302 @@
 # vlang_utils
 
-A suite of ergonomic V utility modules (`fileutils` and `sqliteutils`) for common file system operations and SQLite data persistence used in rapid application development (RAD).
+A comprehensive suite of ergonomic, production-grade V utility modules designed for rapid application development (RAD). Never write common boilerplate from scratch again.
 
-## Features
+## Included Modules
 
-### `fileutils`
-- Save and load arrays of structs from JSON files
-- Save and load single structs from JSON files
-- Append lines to text files
-- Write and read plain text files
-- Save and load maps to JSON files
-- Create parent directories for file paths automatically
-- Read line-based text files
-- Load simple key/value config files with defaults
-- Write and read JSON files for arbitrary values
-- Append JSON objects as newline-delimited JSON (NDJSON)
+| Module | Description |
+| :--- | :--- |
+| [`fileutils`](#1-fileutils) | JSON serialization, text operations, CSV parsing, copy/move, recursive listing, human-readable file sizes. |
+| [`sqliteutils`](#2-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, safe parameterized queries, DDL migrations. |
+| [`strutils`](#3-strutils) | Case conversions (snake, kebab, camel, pascal, title), slugify, masking, padding, Levenshtein distance, word wrap. |
+| [`sliceutils`](#4-sliceutils) | Generic collection operations: unique, chunk, flatten, partition, intersection, difference, shuffle, sampling, stats. |
+| [`envutils`](#5-envutils) | Type-safe environment variable retrieval (`get_str`, `get_int`, `get_bool`), `.env` file loader, variable expansion. |
+| [`cryptoutils`](#6-cryptoutils) | SHA-256, SHA-512, MD5, HMAC-SHA256, Base64 / Base64URL encode/decode, UUID v4, secure tokens. |
+| [`timeutils`](#7-timeutils) | Human relative time ("2 hours ago", "in 3 days"), ISO 8601 formatting/parsing, calendar boundaries, `Stopwatch`. |
+| [`httputils`](#8-httputils) | Ergonomic HTTP client (`get_json[T]`, `post_json[T, R]`, `get_text`), query string builder/parser, retry with backoff. |
+| [`cliutils`](#9-cliutils) | Terminal ANSI styling, FlagParser, interactive prompts, progress bar, sparkline, bar chart, gauge, tree, diff, tables. |
+| [`sysutils`](#10-sysutils) | System telemetry (CPU usage/cores, RAM, swap, disk, uptime, load averages), safe exec (`exec_safe`, `quote_arg`), paths, clipboard. |
+| [`netutils`](#11-netutils) | Network discovery (local/public IP, MAC, Wi-Fi SSID, DNS servers, gateway, listening ports), connectivity check & TCP ping. |
+| [`validutils`](#12-validutils) | High-speed validation for email, URL, IPv4/IPv6, phone numbers, alphanumeric strings, numeric ranges, UUID, JSON. |
+| [`structutils`](#13-structutils) | Generic RAD data structures: `SimpleStack[T]`, `SimpleQueue[T]`, circular `SimpleRingBuffer[T]`, and `SimpleMinHeap`. |
+| [`statutils`](#14-statutils) | Statistical analysis: mean, median, mode, variance, standard deviation, geometric/harmonic mean, RMS, percentiles, min/max. |
+| [`stateutils`](#15-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with atomic writes, auto-save, and rollback. |
 
-### `sqliteutils`
-
-**Connection & Inspection**
-- Automatic parent directory creation when opening SQLite database files
-- Table inspection: `table_exists`, `get_table_names`, `count_rows`
-
-**Schema / DDL**
-- `drop_table` (with optional `IF EXISTS` via `force` flag)
-- `rename_table`, `clear_table` (truncate equivalent)
-- `get_column_names`, `column_exists`, `table_row_counts`, `get_table_schema`
-
-**Column Management** *(ALTER TABLE)*
-- `add_column(db, table, ColumnDef)` — add a single column with type/constraint expression
-- `add_columns(db, table, []ColumnDef)` — add multiple columns atomically (all-or-nothing)
-- `rename_column(db, table, old, new)` — rename a column, data preserved (SQLite 3.25+)
-- `drop_column(db, table, col)` — drop a single column (SQLite 3.35+)
-- `drop_columns(db, table, []col)` — drop multiple columns atomically (SQLite 3.35+)
-
-**Key-Value Store**
-- Full KV CRUD: `create_kv_table`, `set_kv`, `get_kv`, `delete_kv`, `get_all_kv`
-- Extended KV: `kv_exists`, `get_kv_or` (never-error fallback), `increment_kv`, `clear_kv`
-
-**JSON Document Store (struct persistence)**
-- Full doc CRUD: `create_json_store`, `save_struct`, `load_struct`, `load_all_structs`, `delete_struct`
-- Extended doc store: `struct_exists`, `count_structs`, `list_struct_ids`, `delete_all_structs`
-
-**Queries (all parameterized — SQL-injection safe)**
-- `query_maps`, `query_maps_params` — rows as `[]map[string]string`
-- `query_one_map`, `query_one_map_params` — first row as `map[string]string`
-- `query_scalar` — single aggregate value (COUNT, SUM, MAX…)
-- `query_column` — first column of all rows as `[]string`
-
-**Transactions**
-- `execute_batch` — static SQL statements in a single atomic transaction
-- `execute_batch_params` — parameterized statements via `[]ParamStatement`
-- `with_transaction` — closure-style transaction with automatic rollback on error
-
-**Security**
-- All user-supplied *values* use `?` parameter binding via `exec_param` / `exec_param_many`
-- All table/column *identifiers* are validated through `sanitize_identifier` (allowlist: letters, digits, `_`, `-`)
+---
 
 ## Quick Start Examples
 
-Below are complete, standalone examples that beginners can copy and run directly.
-
-### 1. File Utilities (`fileutils`)
-
-Save and load data structures to disk without boilerplate:
-
+### 1. `fileutils`
 ```v
-module main
-
 import fileutils
 
-// Define your data structure
 struct Person {
     name string
     age  int
 }
 
-fn main() {
-    // 1. Save a list of structs to a JSON file
-    people := [
-        Person{ name: 'Alice', age: 30 },
-        Person{ name: 'Bob', age: 25 }
-    ]
-    fileutils.save_struct_array_to_file('data/people.json', people)!
-    println('Saved people array to JSON file!')
+// 1. Save and load arrays of structs to/from JSON files
+people := [Person{ name: 'Alice', age: 30 }, Person{ name: 'Bob', age: 25 }]
+fileutils.save_struct_array_to_file('data/people.json', people)!
+loaded := fileutils.load_struct_array_from_file[Person]('data/people.json')!
 
-    // 2. Load the list back from disk into memory
-    loaded_people := fileutils.load_struct_array_from_file[Person]('data/people.json')!
-    for p in loaded_people {
-        println('Found person: ${p.name}, age ${p.age}')
-    }
+// 2. Read and write CSV files
+fileutils.write_csv('data/users.csv', [
+    ['id', 'name', 'role'],
+    ['1', 'Alice', 'admin'],
+], `,`)!
+rows := fileutils.read_csv('data/users.csv', `,`)!
 
-    // 3. Write a text file (automatically creates nested folders like "logs/")
-    fileutils.write_text_file('logs/app.log', 'Application started successfully\n')!
-
-    // 4. Append a new log line
-    fileutils.append_line_to_file('logs/app.log', 'User logged in')!
-}
+// 3. File helpers
+fileutils.copy_file('data/users.csv', 'backup/users.csv')!
+size_str := fileutils.file_size_human('data/users.csv')! // e.g. "45 B"
 ```
 
-### 2. SQLite Utilities (`sqliteutils`)
-
-Store key-value settings, persist structs, run safe parameterized queries, and manage schema with SQLite:
-
+### 2. `sqliteutils`
 ```v
-module main
-
 import sqliteutils
 
-struct User {
-    name  string
-    email string
+mut db := sqliteutils.open_db('data/app.db')!
+defer { sqliteutils.close_db(mut db) or {} }
+
+// Key-Value Store
+sqliteutils.create_kv_table(mut db, 'settings')!
+sqliteutils.set_kv(mut db, 'settings', 'theme', 'dark')!
+theme := sqliteutils.get_kv_or(mut db, 'settings', 'theme', 'light')
+
+// Document Store (persist structs without manual SQL)
+sqliteutils.create_json_store(mut db, 'users')!
+sqliteutils.save_struct(mut db, 'users', 'user_1', Person{ name: 'Alice', age: 30 })!
+user := sqliteutils.load_struct[Person](mut db, 'users', 'user_1')!
+```
+
+### 3. `strutils`
+```v
+import strutils
+
+slug := strutils.slugify('Hello World 2026: The Future!') // "hello-world-2026-the-future"
+snake := strutils.to_snake_case('camelCaseText')          // "camel_case_text"
+kebab := strutils.to_kebab_case('camelCaseText')          // "camel-case-text"
+pascal := strutils.to_pascal_case('hello_world')          // "HelloWorld"
+
+masked_email := strutils.mask_email('john.doe@example.com') // "j******e@example.com"
+token := strutils.random_alphanumeric(32)                   // 32-char secure random string
+dist := strutils.levenshtein_distance('kitten', 'sitting')  // 3
+```
+
+### 4. `sliceutils`
+```v
+import sliceutils
+
+nums := [1, 2, 2, 3, 4, 4, 5]
+unique_nums := sliceutils.unique(nums)                 // [1, 2, 3, 4, 5]
+chunks := sliceutils.chunk(nums, 3)                     // [[1, 2, 2], [3, 4, 4], [5]]
+evens, odds := sliceutils.partition(nums, fn (n int) bool { return n % 2 == 0 })
+sum := sliceutils.sum_int(nums)                         // 21
+avg := sliceutils.average_int(nums)                     // 3.0
+```
+
+### 5. `envutils`
+```v
+import envutils
+
+// Type-safe getters with defaults
+port := envutils.get_int('PORT', 8080)
+is_debug := envutils.get_bool('DEBUG', false)
+db_url := envutils.get_required('DATABASE_URL')!
+
+// Expand variables in strings
+path := envutils.expand_env('/var/${APP_ENV}/logs')
+```
+
+### 6. `cryptoutils`
+```v
+import cryptoutils
+
+hash := cryptoutils.sha256('secret')
+hmac := cryptoutils.hmac_sha256('key', 'data')
+uuid := cryptoutils.uuid_v4()                     // "b17c05dd-362c-46c2-b588-6df3f3300697"
+b64 := cryptoutils.base64_encode('Hello V')
+orig := cryptoutils.base64_decode(b64)!
+```
+
+### 7. `timeutils`
+```v
+import timeutils
+import time
+
+// Human relative time
+println(timeutils.time_ago(time.now().add(-3600 * time.second))) // "1 hour ago"
+println(timeutils.time_until(time.now().add(86400 * time.second))) // "tomorrow"
+
+// Benchmark Stopwatch
+mut sw := timeutils.new_stopwatch()
+time.sleep(20 * time.millisecond)
+sw.stop()
+println('Completed in ${sw.elapsed_ms():.2f} ms')
+```
+
+### 8. `httputils`
+```v
+import httputils
+
+// Build and parse query strings
+qs := httputils.build_query_string({ 'search': 'vlang', 'page': '1' })
+params := httputils.parse_query_string('?search=vlang&page=1')
+
+// REST Helpers
+struct Post {
+    id    int
+    title string
 }
+post := httputils.get_json[Post]('https://jsonplaceholder.typicode.com/posts/1', {})!
+```
 
-fn main() {
-    // 1. Open SQLite database (creates 'data/' folder automatically if missing)
-    mut db := sqliteutils.open_db('data/app.db')!
-    defer { sqliteutils.close_db(mut db) or {} } // always release the file handle
-    println('Connected to SQLite database!')
+### 9. `cliutils`
+```v
+import cliutils
 
-    // 2. Schema helpers
-    sqliteutils.exec_sql(mut db, 'CREATE TABLE IF NOT EXISTS logs (msg TEXT, level TEXT);')!
-    cols := sqliteutils.get_column_names(mut db, 'logs')!
-    println('logs columns: ${cols}') // ['msg', 'level']
+// Terminal ANSI Styling & Visualization
+println(cliutils.bold(cliutils.green('Success: Service is running')))
+println('Sparkline: ' + cliutils.sparkline([1.0, 3.0, 5.0, 8.0, 4.0, 2.0, 9.0]))
+println(cliutils.gauge('RAM', 7.2, 10.0, 'GB'))
+println(cliutils.bar_chart('Stats', { 'CPU': 45.0, 'MEM': 80.0 }, 20))
 
-    // 3. Key-Value Store — save app settings
-    sqliteutils.create_kv_table(mut db, 'settings')!
-    sqliteutils.set_kv(mut db, 'settings', 'theme', 'dark')!
-    sqliteutils.set_kv(mut db, 'settings', 'notifications', 'enabled')!
+// Tree rendering
+tree := cliutils.TreeNode{
+    label: 'Root'
+    children: [
+        cliutils.TreeNode{ label: 'Child A' },
+        cliutils.TreeNode{ label: 'Child B' },
+    ]
+}
+println(cliutils.render_tree(tree))
+```
 
-    // get_kv_or never errors — returns default when key is absent
-    theme := sqliteutils.get_kv_or(mut db, 'settings', 'theme', 'light')
-    println('Current theme: ${theme}')
+### 10. `sysutils`
+```v
+import sysutils
 
-    // Increment a counter (creates key automatically)
-    views := sqliteutils.increment_kv(mut db, 'settings', 'page_views', 1)!
-    println('Page views: ${views}')
+// Telemetry
+cores := sysutils.get_cpu_count()
+total_ram, used_ram, ram_pct := sysutils.get_memory_stats()
+uptime := sysutils.get_uptime()
 
-    // 4. JSON Struct Store — persist structs directly in SQLite
-    sqliteutils.create_json_store(mut db, 'users')!
-    alice := User{ name: 'Alice', email: 'alice@example.com' }
-    sqliteutils.save_struct(mut db, 'users', 'user_101', alice)!
+// Safe execution preventing command injection
+safe_out, code := sysutils.exec_safe('echo', ['hello', 'world'])
 
-    // Check existence before loading
-    if sqliteutils.struct_exists(mut db, 'users', 'user_101')! {
-        loaded := sqliteutils.load_struct[User](mut db, 'users', 'user_101')!
-        println('Loaded: ${loaded.name} (${loaded.email})')
-    }
+// Standard app directories
+config_dir := sysutils.get_app_config_dir('my_app')
+```
 
-    // 5. Parameterized queries — safe from SQL injection
-    sqliteutils.exec_sql(mut db, 'CREATE TABLE orders (user TEXT, amount INT);')!
-    sqliteutils.exec_param_many(mut db, 'INSERT INTO orders VALUES (?, ?)', ['alice', '50'])
-    sqliteutils.exec_param_many(mut db, 'INSERT INTO orders VALUES (?, ?)', ['alice', '30'])
+### 11. `netutils`
+```v
+import netutils
 
-    total := sqliteutils.query_scalar(mut db, 'SELECT SUM(amount) FROM orders WHERE user = ?', ['alice'])!
-    println('Alice total: ${total}')
-
-    // 6. Closure-style transaction — auto-rollback on error
-    sqliteutils.with_transaction(mut db, fn [mut db] () ! {
-        sqliteutils.set_kv(mut db, 'settings', 'step', '1')!
-        sqliteutils.set_kv(mut db, 'settings', 'status', 'ok')!
-    })!
-    println('Transaction committed!')
+if netutils.is_online() {
+    ip := netutils.get_local_ip()
+    println('Connected via IP: ${ip}')
+    dns := netutils.get_dns_servers()
+    println('DNS: ${dns}')
 }
 ```
 
-## Running the Included Demo
+### 12. `validutils`
+```v
+import validutils
 
-To see a complete live demonstration of all features running together:
+is_valid_email := validutils.validate_email('dev@example.com')
+is_valid_url := validutils.validate_url('https://vlang.io')
+is_valid_ip := validutils.validate_ip('192.168.1.1')
+is_valid_json := validutils.validate_json('{"active": true}')
+```
+
+### 13. `structutils`
+```v
+import structutils
+
+// Generic Stack (LIFO)
+mut stack := structutils.new_stack[string]()
+stack.push('first')
+item := stack.pop() // 'first'
+
+// Circular Ring Buffer
+mut ring := structutils.new_ring_buffer[int](3)
+ring.push(1)
+ring.push(2)
+ring.push(3)
+ring.push(4) // drops 1, holds [2, 3, 4]
+items := ring.to_array()
+
+// MinHeap
+mut heap := structutils.new_min_heap()
+heap.push(20.0)
+heap.push(5.0)
+min_item := heap.pop() // 5.0
+```
+
+### 14. `statutils`
+```v
+import statutils
+
+data := [10.0, 20.0, 30.0, 40.0, 50.0]
+mean := statutils.stats_mean(data)       // 30.0
+median := statutils.stats_median(data)   // 30.0
+std_dev := statutils.stats_std_dev(data) // 14.14
+p90 := statutils.stats_percentile(data, 90.0)
+```
+
+### 15. `stateutils`
+```v
+import stateutils
+
+struct AppConfig {
+pub mut:
+    theme        string
+    window_width int
+    recent_files []string
+}
+
+// Automatically resolves OS recommended save path:
+// - macOS: ~/Library/Application Support/my_app/state.json
+// - Windows: %APPDATA%/my_app/state.json
+// - Linux: ~/.local/share/my_app/state.json
+mut store := stateutils.new_app_state[AppConfig]('my_app', AppConfig{
+    theme: 'dark'
+    window_width: 1280
+})
+
+// Modify and save with atomic write (zero corruption risk)
+store.update(fn (mut cfg AppConfig) {
+    cfg.window_width = 1920
+})!
+store.save()!
+
+// Dynamic Key-Value state
+mut kv := stateutils.new_kv_state('my_app')
+kv.auto_save = true
+kv.set_str('user', 'alex')!
+kv.set_int('launches', 5)!
+```
+
+---
+
+## Running the Demo
+
+To run the complete interactive demo showcasing all 15 modules:
 
 ```bash
-v run .
+v run main.v
 ```
 
-The demo program ([main.v](main.v)) creates output files in `.fileutils_demo/` and `.sqliteutils_demo/` and prints output to your console.
+## Running Tests
+
+To run all automated test suites across every module:
+
+```bash
+v test .
+```
 
 ## API Documentation
 
-For full details on every available function and parameter, see [API.md](API.md).
-
+For the complete API reference with comprehensive, runnable examples for each function, see [API.md](API.md).
