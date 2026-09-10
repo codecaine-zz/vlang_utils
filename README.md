@@ -552,11 +552,22 @@ println(entries[0].name) // "hello.txt"
 
 ---
 
-## Running the Demo
+## Running Demos
 
-To run the complete interactive demo showcasing all 30 modules:
+You can run individual standalone demos for any utility module or execute all 30 demos sequentially:
 
 ```bash
+# Run all 30 module demos sequentially with execution timing
+v run demos/run_all_demos.v
+
+# Or run any specific module demo directly
+v run demos/demo_fileutils.v
+v run demos/demo_sqliteutils.v
+v run demos/demo_flowutils.v
+v run demos/demo_cryptoutils.v
+# ... (see demos/ folder for all 30 demo scripts)
+
+# Run the interactive console dashboard
 v run main.v
 ```
 

@@ -74,7 +74,7 @@ fn main() {
 	], `,`) or { panic(err) }
 	csv_rows := fileutils.read_csv(csv_path, `,`) or { panic(err) }
 	println(' - CSV Rows written & read: ${csv_rows.len} rows')
-	println(' - Human file size: ${fileutils.file_size_human(csv_path) or { "" }}')
+	println(' - Human file size: ${fileutils.file_size_human(csv_path) or { '' }}')
 
 	// 2. SQLITEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('2. [sqliteutils] SQLite Ergonomics & KV/Doc Store:')))
@@ -101,9 +101,13 @@ fn main() {
 
 	// Parameterized CRUD & Injection Defense
 	sqliteutils.exec_sql(mut db, 'CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT);') or { panic(err) }
-	acct_id := sqliteutils.insert_row(mut db, 'accounts', { 'name': "Alice' OR 1=1; --" }) or { panic(err) }
-	accts := sqliteutils.select_rows(mut db, 'accounts', ['id', 'name'], 'id = ?', ['${acct_id}']) or { panic(err) }
-	println(' - Safe Parameterized Insert & Select: id=${accts[0]["id"]}, name="${accts[0]["name"]}"')
+	acct_id := sqliteutils.insert_row(mut db, 'accounts', {
+		'name': "Alice' OR 1=1; --"
+	}) or { panic(err) }
+	accts := sqliteutils.select_rows(mut db, 'accounts', ['id', 'name'], 'id = ?', [
+		'${acct_id}',
+	]) or { panic(err) }
+	println(' - Safe Parameterized Insert & Select: id=${accts[0]['id']}, name="${accts[0]['name']}"')
 
 	// 3. STRUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('3. [strutils] String Manipulation & Formatting:')))
@@ -124,7 +128,9 @@ fn main() {
 	println(' - Unique numbers: ${sliceutils.unique(numbers)}')
 	chunks := sliceutils.chunk(numbers, 4)
 	println(' - Chunked (size 4): ${chunks}')
-	evens, odds := sliceutils.partition(numbers, fn (n int) bool { return n % 2 == 0 })
+	evens, odds := sliceutils.partition(numbers, fn (n int) bool {
+		return n % 2 == 0
+	})
 	println(' - Partitioned -> Evens: ${evens}, Odds: ${odds}')
 	println(' - Sum: ${sliceutils.sum_int(numbers)}, Average: ${sliceutils.average_int(numbers):.2f}')
 
@@ -142,11 +148,11 @@ fn main() {
 
 	// 6. CRYPTOUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('6. [cryptoutils] Cryptography, Hashes & UUIDs:')))
-	println(' - SHA-256("hello"): ${cryptoutils.sha256("hello")}')
-	println(' - MD5("hello"): ${cryptoutils.md5("hello")}')
-	println(' - HMAC-SHA256: ${cryptoutils.hmac_sha256("secret-key", "my-payload")}')
+	println(' - SHA-256("hello"): ${cryptoutils.sha256('hello')}')
+	println(' - MD5("hello"): ${cryptoutils.md5('hello')}')
+	println(' - HMAC-SHA256: ${cryptoutils.hmac_sha256('secret-key', 'my-payload')}')
 	println(' - UUID v4: ${cryptoutils.uuid_v4()}')
-	println(' - Base64 Encoded: ${cryptoutils.base64_encode("Antigravity IDE")}')
+	println(' - Base64 Encoded: ${cryptoutils.base64_encode('Antigravity IDE')}')
 
 	// 7. TIMEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('7. [timeutils] Relative Time, Formatting & Stopwatch:')))
@@ -161,8 +167,8 @@ fn main() {
 	// 8. HTTPUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('8. [httputils] Query String & HTTP Client:')))
 	qs := httputils.build_query_string({
-		'query': 'v language utils'
-		'page': '1'
+		'query':  'v language utils'
+		'page':   '1'
 		'format': 'json'
 	})
 	println(' - Encoded Query String: ${qs}')
@@ -174,8 +180,8 @@ fn main() {
 	println(' - Sparkline: ' + cliutils.sparkline([1.0, 3.0, 5.0, 8.0, 4.0, 2.0, 9.0, 7.0, 10.0]))
 	println(' - Gauge: ' + cliutils.gauge('RAM', 7.2, 10.0, 'GB'))
 	println(' - Bar Chart:\n' + cliutils.bar_chart('Resource Usage', {
-		'CPU': 45.0
-		'MEM': 78.5
+		'CPU':  45.0
+		'MEM':  78.5
 		'DISK': 62.0
 	}, 20))
 	tree := cliutils.TreeNode{
@@ -189,7 +195,7 @@ fn main() {
 					cliutils.TreeNode{ label: 'netutils' },
 					cliutils.TreeNode{ label: 'cliutils' },
 				]
-			}
+			},
 		]
 	}
 	println(' - Tree View:\n' + cliutils.render_tree(tree))
@@ -220,18 +226,18 @@ fn main() {
 
 	// 12. VALIDUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('12. [validutils] Comprehensive Data Validation:')))
-	println(' - validate_email("dev@google.com"): ${validutils.validate_email("dev@google.com")}')
-	println(' - validate_url("https://vlang.io"): ${validutils.validate_url("https://vlang.io")}')
-	println(' - validate_ip("192.168.1.1"): ${validutils.validate_ip("192.168.1.1")}')
-	println(' - validate_uuid("550e8400-e29b-41d4-a716-446655440000"): ${validutils.validate_uuid("550e8400-e29b-41d4-a716-446655440000")}')
-	println(' - validate_json("{\"active\": true}"): ${validutils.validate_json("{\"active\": true}")}')
+	println(' - validate_email("dev@google.com"): ${validutils.validate_email('dev@google.com')}')
+	println(' - validate_url("https://vlang.io"): ${validutils.validate_url('https://vlang.io')}')
+	println(' - validate_ip("192.168.1.1"): ${validutils.validate_ip('192.168.1.1')}')
+	println(' - validate_uuid("550e8400-e29b-41d4-a716-446655440000"): ${validutils.validate_uuid('550e8400-e29b-41d4-a716-446655440000')}')
+	println(' - validate_json("{"active": true}"): ${validutils.validate_json('{"active": true}')}')
 
 	// 13. STRUCTUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('13. [structutils] RAD Generic Data Structures:')))
 	mut stack := structutils.new_stack[string]()
 	stack.push('first')
 	stack.push('second')
-	println(' - Stack Pop: ${stack.pop() or { "" }} (remaining: ${stack.len()})')
+	println(' - Stack Pop: ${stack.pop() or { '' }} (remaining: ${stack.len()})')
 
 	mut queue := structutils.new_queue[int]()
 	queue.push(100)
@@ -257,7 +263,7 @@ fn main() {
 	summary := statutils.stats_summary(dataset)
 	println(' - Dataset: ${dataset}')
 	println(' - Summary: Mean=${summary.mean:.2f} | Median=${summary.median:.2f} | Sample StdDev=${summary.sample_std_dev:.2f} | IQR=${summary.iqr:.2f} | Skew=${summary.skewness:.2f}')
-	
+
 	// Bivariate Analysis
 	x_vals := [1.0, 2.0, 3.0, 4.0, 5.0]
 	y_vals := [2.1, 3.9, 6.2, 8.0, 9.9]
@@ -268,7 +274,6 @@ fn main() {
 	ma := statutils.stats_moving_average(dataset, 3) or { []f64{} }
 	println(' - 3-Point Moving Average: ${ma}')
 
-
 	// 15. STATEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('15. [stateutils] OS-Recommended App State Saving:')))
 	app_name := 'vlang_utils_demo_app'
@@ -278,10 +283,10 @@ fn main() {
 	}
 
 	mut app_store := stateutils.new_app_state[AppStateDemo](app_name, AppStateDemo{
-		theme:         'system_dark'
-		window_width:  1280
+		theme: 'system_dark'
+		window_width: 1280
 		window_height: 800
-		recent_files:  ['src/main.v', 'v.mod']
+		recent_files: ['src/main.v', 'v.mod']
 	})
 	println(' - Recommended OS Path: ${app_store.path()}')
 
@@ -302,7 +307,7 @@ fn main() {
 	kv.auto_save = true
 	kv.set_str('user_locale', 'en-US') or {}
 	kv.set_int('launch_count', 15) or {}
-	println(' - Dynamic KV State: user_locale=${kv.get_str("user_locale", "")}, launches=${kv.get_int("launch_count", 0)}')
+	println(' - Dynamic KV State: user_locale=${kv.get_str('user_locale', '')}, launches=${kv.get_int('launch_count', 0)}')
 
 	// 16. CACHEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('16. [cacheutils] LRU & TTL Caching:')))
@@ -310,14 +315,14 @@ fn main() {
 	lru.set('session:1', 'Alice')
 	lru.set('session:2', 'Bob')
 	lru.set('session:3', 'Charlie') // evicts session:1
-	println(' - LRU Capacity 2, accessed: ${lru.get("session:1") or { "none (evicted)" }}, ${lru.get("session:3") or { "" }}')
+	println(' - LRU Capacity 2, accessed: ${lru.get('session:1') or { 'none (evicted)' }}, ${lru.get('session:3') or { '' }}')
 
 	mut ttl := cacheutils.new_ttl[string](500 * time.millisecond)
 	ttl.set('token:1', 'secret_jwt')
 	val := cacheutils.get_or_set_ttl(mut ttl, 'computed:1', fn () !string {
 		return 'computed_expensive_value'
 	}) or { '' }
-	println(' - TTL Cache get_or_set: ${val}, token:1 active: ${ttl.has("token:1")}')
+	println(' - TTL Cache get_or_set: ${val}, token:1 active: ${ttl.has('token:1')}')
 
 	// 17. SEMVERUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('17. [semverutils] Semantic Versioning 2.0.0:')))
@@ -356,7 +361,7 @@ fn main() {
 	c_hex := colorutils.hex_to_rgb('#007acc') or { colorutils.RGB{} }
 	hsl := colorutils.rgb_to_hsl(c_hex)
 	println(' - Hex #007acc -> RGB(${c_hex.r}, ${c_hex.g}, ${c_hex.b}) -> HSL(${hsl.h:.0f}°, ${hsl.s * 100:.0f}%, ${hsl.l * 100:.0f}%)')
-	
+
 	white := colorutils.RGB{255, 255, 255}
 	contrast := colorutils.contrast_ratio(c_hex, white)
 	accessible := colorutils.is_accessible(c_hex, white, 'AA')
@@ -461,8 +466,7 @@ fn main() {
 
 	// 29. COMPRESSUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('29. [compressutils] Multi-Algorithm Compression (Gzip, Zlib, Deflate, Zstd):')))
-	sample_payload := 'V is a statically typed compiled programming language designed for building maintainable software. ' +
-		'It provides fast compilation, high performance, safety, and a clean minimalist syntax.'
+	sample_payload := 'V is a statically typed compiled programming language designed for building maintainable software. ' + 'It provides fast compilation, high performance, safety, and a clean minimalist syntax.'
 	gz_c := compressutils.gzip_compress_string(sample_payload) or { panic(err) }
 	zs_c := compressutils.zstd_compress_string(sample_payload) or { panic(err) }
 	println(' - Original: ${sample_payload.len} B | Gzip: ${gz_c.len} B (${compressutils.compression_ratio(sample_payload.len, gz_c.len):.1f}% saved) | Zstd: ${zs_c.len} B (${compressutils.compression_ratio(sample_payload.len, zs_c.len):.1f}% saved)')
@@ -471,7 +475,7 @@ fn main() {
 	println('\n' + cliutils.bold(cliutils.yellow('30. [tarutils] POSIX ustar TAR Archive Packing & Unpacking:')))
 	tar_entries := [
 		tarutils.TarEntry{ name: 'manifest.txt', size: 19, is_dir: false, data: 'vlang_utils bundle'.bytes() },
-		tarutils.TarEntry{ name: 'docs', size: 0, is_dir: true, data: []u8{} }
+		tarutils.TarEntry{ name: 'docs', size: 0, is_dir: true, data: []u8{} },
 	]
 	packed_tar := tarutils.pack_bytes(tar_entries)
 	unpacked_tar := tarutils.unpack_bytes(packed_tar) or { panic(err) }
@@ -479,6 +483,3 @@ fn main() {
 
 	println('\n' + cliutils.bold(cliutils.green('✔ All 30 modules in vlang_utils demonstrated successfully!')))
 }
-
-
-

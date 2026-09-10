@@ -240,7 +240,7 @@ fn is_env_char(r rune) bool {
 
 // expand_env replaces ${VAR} or $VAR in the input string with their corresponding environment variable values.
 pub fn expand_env(input string) string {
-	if !input.contains('$') {
+	if !input.contains('\$') {
 		return input
 	}
 	mut sb := strings.new_builder(input.len + 16)

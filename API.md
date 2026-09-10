@@ -1,6 +1,6 @@
 # V Developer Utility Suite (`vlang_utils`) - Complete API Reference
 
-Welcome to the comprehensive API reference manual for the **30 production-grade developer utility modules** integrated directly into `simple_gg`.
+Welcome to the comprehensive API reference manual for the **30 production-grade developer utility modules** in `vlang_utils`.
 
 Every module is zero-dependency, self-contained, and designed for Rapid Application Development (RAD). You can import any module directly across GUI apps, CLI tools, services, and background workers (e.g. `import strutils`, `import sqliteutils`, `import cacheutils`).
 
@@ -20,6 +20,48 @@ The examples use a few V conventions that are worth knowing before you start:
 - `println(...)` displays a result in the terminal. `assert ...` checks that an example produced the expected answer; it prints nothing when the check passes.
 
 Examples that contact a website, read a file, use the clipboard, or ask a question in the terminal need that service, file, or user input to be available. Their surrounding text names the required input and explains the expected result.
+
+### 🚀 Ready-to-Run Demos
+
+All 30 utility modules have standalone, fully functional demo scripts located in the [`demos/`](demos/) directory.
+
+- **Run all 30 demos sequentially with execution timing:**
+  ```bash
+  v run demos/run_all_demos.v
+  ```
+
+| Module | Demo Script | Command |
+| :--- | :--- | :--- |
+| [`archiveutils`](#archiveutils-api) | [`demo_archiveutils.v`](demos/demo_archiveutils.v) | `v run demos/demo_archiveutils.v` |
+| [`asyncutils`](#asyncutils-api) | [`demo_asyncutils.v`](demos/demo_asyncutils.v) | `v run demos/demo_asyncutils.v` |
+| [`bitutils`](#bitutils-api) | [`demo_bitutils.v`](demos/demo_bitutils.v) | `v run demos/demo_bitutils.v` |
+| [`cacheutils`](#cacheutils-api) | [`demo_cacheutils.v`](demos/demo_cacheutils.v) | `v run demos/demo_cacheutils.v` |
+| [`cliutils`](#cliutils-api) | [`demo_cliutils.v`](demos/demo_cliutils.v) | `v run demos/demo_cliutils.v` |
+| [`colorutils`](#colorutils-api) | [`demo_colorutils.v`](demos/demo_colorutils.v) | `v run demos/demo_colorutils.v` |
+| [`compressutils`](#compressutils-api) | [`demo_compressutils.v`](demos/demo_compressutils.v) | `v run demos/demo_compressutils.v` |
+| [`cryptoutils`](#cryptoutils-api) | [`demo_cryptoutils.v`](demos/demo_cryptoutils.v) | `v run demos/demo_cryptoutils.v` |
+| [`envutils`](#envutils-api) | [`demo_envutils.v`](demos/demo_envutils.v) | `v run demos/demo_envutils.v` |
+| [`fileutils`](#fileutils-api) | [`demo_fileutils.v`](demos/demo_fileutils.v) | `v run demos/demo_fileutils.v` |
+| [`flowutils`](#flowutils-api) | [`demo_flowutils.v`](demos/demo_flowutils.v) | `v run demos/demo_flowutils.v` |
+| [`htmlutils`](#htmlutils-api) | [`demo_htmlutils.v`](demos/demo_htmlutils.v) | `v run demos/demo_htmlutils.v` |
+| [`httputils`](#httputils-api) | [`demo_httputils.v`](demos/demo_httputils.v) | `v run demos/demo_httputils.v` |
+| [`logutils`](#logutils-api) | [`demo_logutils.v`](demos/demo_logutils.v) | `v run demos/demo_logutils.v` |
+| [`mockutils`](#mockutils-api) | [`demo_mockutils.v`](demos/demo_mockutils.v) | `v run demos/demo_mockutils.v` |
+| [`netutils`](#netutils-api) | [`demo_netutils.v`](demos/demo_netutils.v) | `v run demos/demo_netutils.v` |
+| [`regexutils`](#regexutils-api) | [`demo_regexutils.v`](demos/demo_regexutils.v) | `v run demos/demo_regexutils.v` |
+| [`semverutils`](#semverutils-api) | [`demo_semverutils.v`](demos/demo_semverutils.v) | `v run demos/demo_semverutils.v` |
+| [`sliceutils`](#sliceutils-api) | [`demo_sliceutils.v`](demos/demo_sliceutils.v) | `v run demos/demo_sliceutils.v` |
+| [`sqliteutils`](#sqliteutils-api) | [`demo_sqliteutils.v`](demos/demo_sqliteutils.v) | `v run demos/demo_sqliteutils.v` |
+| [`stateutils`](#stateutils-api) | [`demo_stateutils.v`](demos/demo_stateutils.v) | `v run demos/demo_stateutils.v` |
+| [`statutils`](#statutils-api) | [`demo_statutils.v`](demos/demo_statutils.v) | `v run demos/demo_statutils.v` |
+| [`structutils`](#structutils-api) | [`demo_structutils.v`](demos/demo_structutils.v) | `v run demos/demo_structutils.v` |
+| [`strutils`](#strutils-api) | [`demo_strutils.v`](demos/demo_strutils.v) | `v run demos/demo_strutils.v` |
+| [`sysutils`](#sysutils-api) | [`demo_sysutils.v`](demos/demo_sysutils.v) | `v run demos/demo_sysutils.v` |
+| [`tarutils`](#tarutils-api) | [`demo_tarutils.v`](demos/demo_tarutils.v) | `v run demos/demo_tarutils.v` |
+| [`templateutils`](#templateutils-api) | [`demo_templateutils.v`](demos/demo_templateutils.v) | `v run demos/demo_templateutils.v` |
+| [`timeutils`](#timeutils-api) | [`demo_timeutils.v`](demos/demo_timeutils.v) | `v run demos/demo_timeutils.v` |
+| [`tomlutils`](#tomlutils-api) | [`demo_tomlutils.v`](demos/demo_tomlutils.v) | `v run demos/demo_tomlutils.v` |
+| [`validutils`](#validutils-api) | [`demo_validutils.v`](demos/demo_validutils.v) | `v run demos/demo_validutils.v` |
 
 ---
 
@@ -5576,7 +5618,4 @@ println('Ops/Sec: ${res.ops_per_sec}')
 var_bm := timeutils.BenchmarkResult{ name: 'demo', iterations: 10 }
 ```
 
-```
-
 [▲ Back to Table of Contents](#table-of-contents)
-```
