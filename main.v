@@ -130,8 +130,8 @@ fn main() {
 
 	// 5. ENVUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('5. [envutils] Environment & Configuration:')))
-	os.setenv('APP_PORT', '8080', true)
-	os.setenv('APP_DEBUG', 'true', true)
+	envutils.set_int('APP_PORT', 8080)
+	envutils.set_bool('APP_DEBUG', true)
 	port := envutils.get_int('APP_PORT', 3000)
 	debug := envutils.get_bool('APP_DEBUG', false)
 	println(' - Typed Env: Port=${port}, Debug=${debug}')

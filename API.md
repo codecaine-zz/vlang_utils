@@ -70,7 +70,7 @@ Examples that contact a website, read a file, use the clipboard, or ask a questi
 #### 3. System Telemetry, OS & CLI
 
 - **[`cliutils`](#cliutils-api)** — ANSI terminal colors, FlagParser, interactive prompts, progress bars, tables
-- **[`envutils`](#envutils-api)** — Type-safe environment variable access, .env file loader, variable expansion
+- **[`envutils`](#envutils-api)** — Type-safe environment variable access, programmatic setters/unsetting, .env file loader, variable expansion
 - **[`logutils`](#logutils-api)** — Leveled structured logging (.debug, .info, .warn, .error, .fatal)
 - **[`sysutils`](#sysutils-api)** — CPU/RAM/disk telemetry, system uptime, safe command execution, clipboard
 
@@ -1977,13 +1977,92 @@ max_f := sliceutils.max_f64(floats) or { 0.0 } // 8.2
 
 # envutils API
 
-**Plain-language purpose:** Use these tools to read app settings that live outside your program, such as a port number, a feature switch, or a secret key. The examples show safe defaults so your app can still run when a setting is absent.
+**Plain-language purpose:** Use these tools to read and set app settings that live in the process environment, such as a port number, a feature switch, or a secret key. The examples show typed getters with safe defaults, programmatic setters, and .env file loading.
 
 Import statement:
 
 ```v
 import envutils
 ```
+
+### `set(key string, val string)`
+
+Sets an environment variable to a string value in the current process.
+
+```v
+envutils.set('APP_ENV', 'production')
+```
+
+---
+
+### `set_int(key string, val int)`
+
+Sets an environment variable to an integer formatted as a string.
+
+```v
+envutils.set_int('PORT', 8080)
+```
+
+---
+
+### `set_bool(key string, val bool)`
+
+Sets an environment variable to `'true'` or `'false'`.
+
+```v
+envutils.set_bool('DEBUG', true)
+```
+
+---
+
+### `set_f64(key string, val f64)`
+
+Sets an environment variable to a floating-point number formatted as a string.
+
+```v
+envutils.set_f64('RATE_LIMIT_RATIO', 1.25)
+```
+
+---
+
+### `set_map(vars map[string]string)`
+
+Sets multiple environment variables at once from a key-value map.
+
+```v
+envutils.set_map({
+    'SERVICE_NAME': 'payments',
+    'REGION': 'us-east-1',
+    'ENV': 'staging'
+})
+```
+
+---
+
+### `unset(key string)`
+
+Removes an environment variable from the OS environment.
+
+```v
+envutils.unset('TEMP_TOKEN')
+```
+
+---
+
+### `is_set(key string) bool` & `has(key string) bool`
+
+Checks whether an environment variable exists and is non-empty.
+
+```v
+if envutils.is_set('DATABASE_URL') {
+    println('Database URL is configured')
+}
+if envutils.has('REDIS_URL') {
+    println('Redis URL is configured')
+}
+```
+
+---
 
 ### `get_str(key string, default_val string) string`
 
@@ -2011,6 +2090,16 @@ Interprets `'true'`, `'1'`, `'yes'`, `'on'` as `true`, and `'false'`, `'0'`, `'n
 
 ```v
 debug := envutils.get_bool('DEBUG', false)
+```
+
+---
+
+### `get_f64(key string, default_val f64) f64`
+
+Gets environment variable parsed as float, or fallback if unset or invalid.
+
+```v
+scale := envutils.get_f64('SCALE_FACTOR', 1.0)
 ```
 
 ---

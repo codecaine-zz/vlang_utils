@@ -4,6 +4,48 @@ import os
 import strconv
 import strings
 
+// set sets an environment variable to a string value.
+pub fn set(key string, val string) {
+	os.setenv(key, val, true)
+}
+
+// set_int sets an environment variable to an integer formatted as a string.
+pub fn set_int(key string, val int) {
+	os.setenv(key, val.str(), true)
+}
+
+// set_bool sets an environment variable to 'true' or 'false'.
+pub fn set_bool(key string, val bool) {
+	os.setenv(key, val.str(), true)
+}
+
+// set_f64 sets an environment variable to an f64 formatted as a string.
+pub fn set_f64(key string, val f64) {
+	os.setenv(key, val.str(), true)
+}
+
+// set_map sets multiple environment variables from a key-value map.
+pub fn set_map(vars map[string]string) {
+	for k, v in vars {
+		os.setenv(k, v, true)
+	}
+}
+
+// unset removes an environment variable from the OS environment.
+pub fn unset(key string) {
+	os.unsetenv(key)
+}
+
+// is_set returns true if the environment variable exists and is non-empty.
+pub fn is_set(key string) bool {
+	return os.getenv(key).len > 0
+}
+
+// has returns true if the environment variable exists and is non-empty (alias of is_set).
+pub fn has(key string) bool {
+	return is_set(key)
+}
+
 // get_str returns the string value of the environment variable key, or default_val if unset/empty.
 pub fn get_str(key string, default_val string) string {
 	val := os.getenv(key)

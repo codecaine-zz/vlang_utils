@@ -10,7 +10,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`sqliteutils`](#2-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, secure PRAGMAs, DDL migrations. |
 | [`strutils`](#3-strutils) | Case conversions (snake, kebab, camel, pascal, title), slugify, masking, padding, Levenshtein distance, word wrap. |
 | [`sliceutils`](#4-sliceutils) | Generic collection operations: unique, chunk, flatten, partition, intersection, difference, shuffle, sampling, stats. |
-| [`envutils`](#5-envutils) | Type-safe environment variable retrieval (`get_str`, `get_int`, `get_bool`), `.env` file loader, variable expansion. |
+| [`envutils`](#5-envutils) | Type-safe environment variable retrieval (`get_str`, `get_int`, `get_bool`), setters (`set`, `set_int`, `set_bool`), `.env` file loader, variable expansion. |
 | [`cryptoutils`](#6-cryptoutils) | SHA-256, SHA-512, MD5, HMAC-SHA256, Base64 / Base64URL encode/decode, UUID v4, secure tokens. |
 | [`timeutils`](#7-timeutils) | Human relative time ("2 hours ago", "in 3 days"), ISO 8601 formatting/parsing, calendar boundaries, `Stopwatch`. |
 | [`httputils`](#8-httputils) | Ergonomic HTTP client (`get_json[T]`, `post_json[T, R]`, `get_text`), query string builder/parser, retry with backoff. |
@@ -124,6 +124,11 @@ import envutils
 port := envutils.get_int('PORT', 8080)
 is_debug := envutils.get_bool('DEBUG', false)
 db_url := envutils.get_required('DATABASE_URL')!
+
+// Set & unset variables programmatically
+envutils.set('APP_ENV', 'production')
+envutils.set_int('PORT', 3000)
+envutils.unset('TEMP_FLAG')
 
 // Expand variables in strings
 path := envutils.expand_env('/var/${APP_ENV}/logs')

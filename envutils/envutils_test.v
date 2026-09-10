@@ -52,3 +52,33 @@ fn test_expand_env() {
 	assert expand_env('Path: /var/\${APP_REGION}/\${APP_ENV}/data') == 'Path: /var/us-east/staging/data'
 	assert expand_env('Plain text without vars') == 'Plain text without vars'
 }
+
+fn test_set_unset() {
+	assert is_set('TEST_CUSTOM_KEY') == false
+	assert has('TEST_CUSTOM_KEY') == false
+
+	set('TEST_CUSTOM_KEY', 'custom_val')
+	assert is_set('TEST_CUSTOM_KEY') == true
+	assert has('TEST_CUSTOM_KEY') == true
+	assert get_str('TEST_CUSTOM_KEY', '') == 'custom_val'
+
+	set_int('TEST_INT_VAR', 12345)
+	assert get_int('TEST_INT_VAR', 0) == 12345
+
+	set_bool('TEST_BOOL_VAR', true)
+	assert get_bool('TEST_BOOL_VAR', false) == true
+
+	set_f64('TEST_FLOAT_VAR', 99.5)
+	assert get_f64('TEST_FLOAT_VAR', 0.0) == 99.5
+
+	set_map({
+		'MULTI_A': 'alpha'
+		'MULTI_B': 'beta'
+	})
+	assert get_str('MULTI_A', '') == 'alpha'
+	assert get_str('MULTI_B', '') == 'beta'
+
+	unset('TEST_CUSTOM_KEY')
+	assert is_set('TEST_CUSTOM_KEY') == false
+	assert get_str('TEST_CUSTOM_KEY', 'fallback') == 'fallback'
+}
