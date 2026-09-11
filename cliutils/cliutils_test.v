@@ -2,6 +2,22 @@ module cliutils
 
 import os
 
+fn should_skip_clipboard_test() bool {
+	$if linux {
+		return os.getenv('CI') == 'true' && os.getenv('DISPLAY').len == 0
+			&& os.getenv('WAYLAND_DISPLAY').len == 0
+	}
+	return false
+}
+
+fn restore_env(key string, value string) {
+	if value.len == 0 {
+		os.unsetenv(key)
+	} else {
+		os.setenv(key, value, true)
+	}
+}
+
 fn test_ansi_styling() {
 	b := bold('Hello')
 	assert b.contains('Hello')
@@ -137,11 +153,8 @@ fn test_rad_visualizations() {
 }
 
 fn test_clipboard() {
-	$if linux {
-		if os.getenv('CI') == 'true' && os.getenv('DISPLAY').len == 0
-			&& os.getenv('WAYLAND_DISPLAY').len == 0 {
-			return
-		}
+	if should_skip_clipboard_test() {
+		return
 	}
 	if is_clipboard_available() {
 		original := read_from_clipboard()
@@ -151,5 +164,24 @@ fn test_clipboard() {
 			assert pasted == test_msg
 			copy_to_clipboard(original)
 		}
+	}
+}
+
+fn test_clipboard_ci_skip_gate() {
+	$if linux {
+		old_ci := os.getenv('CI')
+		old_display := os.getenv('DISPLAY')
+		old_wayland := os.getenv('WAYLAND_DISPLAY')
+		defer {
+			restore_env('CI', old_ci)
+			restore_env('DISPLAY', old_display)
+			restore_env('WAYLAND_DISPLAY', old_wayland)
+		}
+		os.setenv('CI', 'true', true)
+		os.unsetenv('DISPLAY')
+		os.unsetenv('WAYLAND_DISPLAY')
+		assert should_skip_clipboard_test() == true
+		os.setenv('DISPLAY', ':99', true)
+		assert should_skip_clipboard_test() == false
 	}
 }

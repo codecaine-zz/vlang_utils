@@ -578,7 +578,7 @@ pub fn copy_to_clipboard(text string) ! {
 		p.close()
 		p.wait()
 		if p.code != 0 {
-			return error('clipboard copy command failed')
+			return error('pbcopy failed with exit code ${p.code}')
 		}
 		return
 	}
@@ -592,7 +592,7 @@ pub fn copy_to_clipboard(text string) ! {
 			p.close()
 			p.wait()
 			if p.code != 0 {
-				return error('clipboard copy command failed')
+				return error('xclip failed with exit code ${p.code}')
 			}
 			return
 		} else if has_command('wl-copy') {
@@ -603,7 +603,7 @@ pub fn copy_to_clipboard(text string) ! {
 			p.close()
 			p.wait()
 			if p.code != 0 {
-				return error('clipboard copy command failed')
+				return error('wl-copy failed with exit code ${p.code}')
 			}
 			return
 		}
