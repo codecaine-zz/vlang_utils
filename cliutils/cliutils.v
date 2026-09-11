@@ -733,9 +733,6 @@ pub fn badge(label string, value string, color_fn fn (string) string) string {
 
 // is_clipboard_available returns true if the system clipboard is accessible.
 pub fn is_clipboard_available() bool {
-	if !can_access_clipboard() {
-		return false
-	}
 	mut cb := clipboard.new()
 	defer {
 		cb.destroy()
@@ -745,9 +742,6 @@ pub fn is_clipboard_available() bool {
 
 // copy_to_clipboard copies a string of text to the OS clipboard.
 pub fn copy_to_clipboard(text string) bool {
-	if !can_access_clipboard() {
-		return false
-	}
 	mut cb := clipboard.new()
 	defer {
 		cb.destroy()
@@ -760,9 +754,6 @@ pub fn copy_to_clipboard(text string) bool {
 
 // read_from_clipboard retrieves the current text content from the OS clipboard.
 pub fn read_from_clipboard() string {
-	if !can_access_clipboard() {
-		return ''
-	}
 	mut cb := clipboard.new()
 	defer {
 		cb.destroy()
@@ -771,11 +762,4 @@ pub fn read_from_clipboard() string {
 		return ''
 	}
 	return cb.paste()
-}
-
-fn can_access_clipboard() bool {
-	$if linux {
-		return os.getenv('DISPLAY').len > 0 || os.getenv('WAYLAND_DISPLAY').len > 0
-	}
-	return true
 }

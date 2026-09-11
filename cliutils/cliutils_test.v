@@ -1,5 +1,7 @@
 module cliutils
 
+import os
+
 fn test_ansi_styling() {
 	b := bold('Hello')
 	assert b.contains('Hello')
@@ -135,6 +137,11 @@ fn test_rad_visualizations() {
 }
 
 fn test_clipboard() {
+	$if linux {
+		if os.getenv('DISPLAY').len == 0 && os.getenv('WAYLAND_DISPLAY').len == 0 {
+			return
+		}
+	}
 	if is_clipboard_available() {
 		original := read_from_clipboard()
 		test_msg := 'antigravity_vlang_utils_test'
