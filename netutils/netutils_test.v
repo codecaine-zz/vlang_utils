@@ -4,7 +4,7 @@ import net
 import time
 
 fn wait_for_listening_port(port int, want_present bool) bool {
-	for _ in 0 .. 5 {
+	for _ in 0 .. 20 {
 		ports := get_listening_ports()
 		if (port in ports) == want_present {
 			return true
@@ -37,8 +37,13 @@ fn test_network_probes() {
 	assert is_open == true
 }
 
-fn test_wait_for_listening_port_negative_path() {
-	assert wait_for_listening_port(0, false)
+fn test_listening_ports_excludes_closed_listener() {
+	mut listener := net.listen_tcp(.ip, '127.0.0.1:0') or { panic(err) }
+	port := (listener.addr() or { panic(err) }).port() or { panic(err) }
+
+	assert wait_for_listening_port(port, true)
+	listener.close() or {}
+	assert wait_for_listening_port(port, false)
 }
 
 fn test_tcp_framing() {
