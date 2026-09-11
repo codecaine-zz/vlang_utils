@@ -9,7 +9,7 @@ struct EnvState {
 
 fn should_skip_clipboard_test() bool {
 	$if linux {
-		return os.getenv('CI') == 'true' && os.getenv('DISPLAY').len == 0
+		return os.getenv('CI').len > 0 && os.getenv('DISPLAY').len == 0
 			&& os.getenv('WAYLAND_DISPLAY').len == 0
 	}
 	return false
@@ -190,7 +190,7 @@ fn test_clipboard_ci_skip_gate() {
 			restore_env('DISPLAY', old_display)
 			restore_env('WAYLAND_DISPLAY', old_wayland)
 		}
-		os.setenv('CI', 'true', true)
+		os.setenv('CI', '1', true)
 		os.unsetenv('DISPLAY')
 		os.unsetenv('WAYLAND_DISPLAY')
 		assert should_skip_clipboard_test() == true
