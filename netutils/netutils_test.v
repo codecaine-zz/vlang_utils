@@ -3,6 +3,17 @@ module netutils
 import net
 import time
 
+fn wait_for_listening_port(port int, want_present bool) bool {
+	for _ in 0 .. 5 {
+		ports := get_listening_ports()
+		if (port in ports) == want_present {
+			return true
+		}
+		time.sleep(50 * time.millisecond)
+	}
+	return false
+}
+
 fn test_network_probes() {
 	local_ip := get_local_ip()
 	assert local_ip.len > 0
@@ -20,15 +31,7 @@ fn test_network_probes() {
 		listener.close() or {}
 	}
 
-	mut ports := []int{}
-	for _ in 0 .. 5 {
-		ports = get_listening_ports()
-		if port in ports {
-			break
-		}
-		time.sleep(50 * time.millisecond)
-	}
-	assert port in ports
+	assert wait_for_listening_port(port, true)
 
 	is_open := ping_tcp_port('127.0.0.1', port, 500)
 	assert is_open == true
@@ -36,6 +39,15 @@ fn test_network_probes() {
 	// Test an unopened port
 	is_closed := ping_tcp_port('127.0.0.1', 65432, 200)
 	assert is_closed == false
+}
+
+fn test_listening_ports_excludes_closed_listener() {
+	mut listener := net.listen_tcp(.ip, '127.0.0.1:0') or { panic(err) }
+	port := (listener.addr() or { panic(err) }).port() or { panic(err) }
+
+	assert wait_for_listening_port(port, true)
+	listener.close() or {}
+	assert wait_for_listening_port(port, false)
 }
 
 fn test_tcp_framing() {
