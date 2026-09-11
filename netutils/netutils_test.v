@@ -36,8 +36,14 @@ fn test_network_probes() {
 	is_open := ping_tcp_port('127.0.0.1', port, 500)
 	assert is_open == true
 
-	// Test an unopened port
-	is_closed := ping_tcp_port('127.0.0.1', 65432, 200)
+	mut closed_listener := net.listen_tcp(.ip, '127.0.0.1:0') or { panic(err) }
+	closed_port := (closed_listener.addr() or { panic(err) }).port() or { panic(err) }
+	assert wait_for_listening_port(closed_port, true)
+	closed_listener.close() or {}
+	assert wait_for_listening_port(closed_port, false)
+
+	// Test a port that we know was just released
+	is_closed := ping_tcp_port('127.0.0.1', closed_port, 200)
 	assert is_closed == false
 }
 

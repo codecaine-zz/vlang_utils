@@ -2,6 +2,11 @@ module cliutils
 
 import os
 
+struct EnvState {
+	value  string
+	exists bool
+}
+
 fn should_skip_clipboard_test() bool {
 	$if linux {
 		return os.getenv('CI') == 'true' && os.getenv('DISPLAY').len == 0
@@ -10,11 +15,19 @@ fn should_skip_clipboard_test() bool {
 	return false
 }
 
-fn restore_env(key string, value string) {
-	if value.len == 0 {
+fn capture_env(key string) EnvState {
+	env := os.environ()
+	return EnvState{
+		value:  env[key] or { '' }
+		exists: key in env
+	}
+}
+
+fn restore_env(key string, state EnvState) {
+	if !state.exists {
 		os.unsetenv(key)
 	} else {
-		os.setenv(key, value, true)
+		os.setenv(key, state.value, true)
 	}
 }
 
@@ -169,9 +182,9 @@ fn test_clipboard() {
 
 fn test_clipboard_ci_skip_gate() {
 	$if linux {
-		old_ci := os.getenv('CI')
-		old_display := os.getenv('DISPLAY')
-		old_wayland := os.getenv('WAYLAND_DISPLAY')
+		old_ci := capture_env('CI')
+		old_display := capture_env('DISPLAY')
+		old_wayland := capture_env('WAYLAND_DISPLAY')
 		defer {
 			restore_env('CI', old_ci)
 			restore_env('DISPLAY', old_display)
