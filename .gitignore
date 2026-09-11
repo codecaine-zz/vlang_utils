@@ -33,3 +33,6 @@ modules/
 demos/.*.v3cc.*/
 demos/run_all_demos
 
+# V installation directory if downloaded locally
+vlang/
+
