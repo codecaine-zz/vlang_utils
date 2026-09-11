@@ -54,6 +54,7 @@ struct Person {
 people := [Person{ name: 'Alice', age: 30 }, Person{ name: 'Bob', age: 25 }]
 fileutils.save_struct_array_to_file('data/people.json', people)!
 loaded := fileutils.load_struct_array_from_file[Person]('data/people.json')!
+println('Loaded ${loaded.len} people')
 
 // 2. Read and write CSV files
 fileutils.write_csv('data/users.csv', [
@@ -61,10 +62,12 @@ fileutils.write_csv('data/users.csv', [
     ['1', 'Alice', 'admin'],
 ], `,`)!
 rows := fileutils.read_csv('data/users.csv', `,`)!
+println('CSV rows: ${rows.len}')
 
 // 3. File helpers
 fileutils.copy_file('data/users.csv', 'backup/users.csv')!
-size_str := fileutils.file_size_human('data/users.csv')! // e.g. "45 B"
+size_str := fileutils.file_size_human('data/users.csv')!
+println('Size: ${size_str}') // e.g. "45 B"
 ```
 
 ### 2. `sqliteutils`
@@ -78,16 +81,19 @@ defer { sqliteutils.close_db(mut db) or {} }
 sqliteutils.create_kv_table(mut db, 'settings')!
 sqliteutils.set_kv(mut db, 'settings', 'theme', 'dark')!
 theme := sqliteutils.get_kv_or(mut db, 'settings', 'theme', 'light')
+println('Theme: ${theme}')
 
 // Document Store (persist structs without manual SQL)
 sqliteutils.create_json_store(mut db, 'users')!
 sqliteutils.save_struct(mut db, 'users', 'user_1', Person{ name: 'Alice', age: 30 })!
 user := sqliteutils.load_struct[Person](mut db, 'users', 'user_1')!
+println('User: ${user.name}')
 
 // Injection-Free Parameterized CRUD
 sqliteutils.exec_sql(mut db, 'CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY, name TEXT);')!
 new_id := sqliteutils.insert_row(mut db, 'accounts', { 'name': 'Alice' })!
 rows := sqliteutils.select_rows(mut db, 'accounts', ['name'], 'name = ?', ['Alice'])!
+println('New ID: ${new_id}, rows: ${rows.len}')
 ```
 
 ### 3. `strutils`
@@ -98,10 +104,12 @@ slug := strutils.slugify('Hello World 2026: The Future!') // "hello-world-2026-t
 snake := strutils.to_snake_case('camelCaseText')          // "camel_case_text"
 kebab := strutils.to_kebab_case('camelCaseText')          // "camel-case-text"
 pascal := strutils.to_pascal_case('hello_world')          // "HelloWorld"
+println('${slug}, ${snake}, ${kebab}, ${pascal}')
 
 masked_email := strutils.mask_email('john.doe@example.com') // "j******e@example.com"
 token := strutils.random_alphanumeric(32)                   // 32-char secure random string
 dist := strutils.levenshtein_distance('kitten', 'sitting')  // 3
+println('${masked_email}, token len=${token.len}, dist=${dist}')
 ```
 
 ### 4. `sliceutils`
@@ -114,6 +122,7 @@ chunks := sliceutils.chunk(nums, 3)                     // [[1, 2, 2], [3, 4, 4]
 evens, odds := sliceutils.partition(nums, fn (n int) bool { return n % 2 == 0 })
 sum := sliceutils.sum_int(nums)                         // 21
 avg := sliceutils.average_int(nums)                     // 3.0
+println('unique: ${unique_nums}, chunks: ${chunks}, evens: ${evens}, odds: ${odds}, sum: ${sum}, avg: ${avg}')
 ```
 
 ### 5. `envutils`
@@ -123,6 +132,7 @@ import envutils
 // Type-safe getters with defaults, optional handling & lists
 port := envutils.get_int('PORT', 8080)
 origins := envutils.get_list('ALLOWED_ORIGINS', ',', ['*'])
+println('Port: ${port}, Origins: ${origins}')
 if token := envutils.get_opt('GITHUB_TOKEN') {
     println('Found token: ${token}')
 }
@@ -135,6 +145,7 @@ envutils.unset('TEMP_FLAG')
 // Dotenv file persistence & string expansion
 envutils.save_dotenv('.env', { 'APP_ENV': 'production', 'PORT': '3000' })!
 path := envutils.expand_env('/var/${APP_ENV}/logs')
+println('Path: ${path}')
 ```
 
 ### 6. `cryptoutils`
@@ -144,8 +155,11 @@ import cryptoutils
 hash := cryptoutils.sha256('secret')
 hmac := cryptoutils.hmac_sha256('key', 'data')
 uuid := cryptoutils.uuid_v4()                     // "b17c05dd-362c-46c2-b588-6df3f3300697"
+println('hash: ${hash}, hmac: ${hmac}, uuid: ${uuid}')
+
 b64 := cryptoutils.base64_encode('Hello V')
 orig := cryptoutils.base64_decode(b64)!
+println(orig)
 ```
 
 ### 7. `timeutils`
@@ -171,6 +185,7 @@ import httputils
 // Build and parse query strings
 qs := httputils.build_query_string({ 'search': 'vlang', 'page': '1' })
 params := httputils.parse_query_string('?search=vlang&page=1')
+println('Query: ${qs}, params: ${params}')
 
 // REST Helpers
 struct Post {
@@ -178,6 +193,7 @@ struct Post {
     title string
 }
 post := httputils.get_json[Post]('https://jsonplaceholder.typicode.com/posts/1', {})!
+println(post.title)
 ```
 
 ### 9. `cliutils`
@@ -209,12 +225,15 @@ import sysutils
 cores := sysutils.get_cpu_count()
 total_ram, used_ram, ram_pct := sysutils.get_memory_stats()
 uptime := sysutils.get_uptime()
+println('Cores: ${cores}, RAM: ${used_ram}/${total_ram} (${ram_pct:.1f}%), uptime: ${uptime}')
 
 // Safe execution preventing command injection
 safe_out, code := sysutils.exec_safe('echo', ['hello', 'world'])
+println('Output: ${safe_out}, code: ${code}')
 
 // Standard app directories
 config_dir := sysutils.get_app_config_dir('my_app')
+println('Config dir: ${config_dir}')
 ```
 
 ### 11. `netutils`
@@ -237,6 +256,7 @@ is_valid_email := validutils.validate_email('dev@example.com')
 is_valid_url := validutils.validate_url('https://vlang.io')
 is_valid_ip := validutils.validate_ip('192.168.1.1')
 is_valid_json := validutils.validate_json('{"active": true}')
+println('valid: email=${is_valid_email}, url=${is_valid_url}, ip=${is_valid_ip}, json=${is_valid_json}')
 ```
 
 ### 13. `structutils`
@@ -246,7 +266,8 @@ import structutils
 // Generic Stack (LIFO)
 mut stack := structutils.new_stack[string]()
 stack.push('first')
-item := stack.pop() // 'first'
+item := stack.pop()
+println('Popped: ${item}') // 'first'
 
 // Circular Ring Buffer
 mut ring := structutils.new_ring_buffer[int](3)
@@ -255,12 +276,14 @@ ring.push(2)
 ring.push(3)
 ring.push(4) // drops 1, holds [2, 3, 4]
 items := ring.to_array()
+println('Ring items: ${items}')
 
 // MinHeap
 mut heap := structutils.new_min_heap()
 heap.push(20.0)
 heap.push(5.0)
-min_item := heap.pop() // 5.0
+min_item := heap.pop()
+println('Min item: ${min_item}') // 5.0
 ```
 
 ### 14. `statutils`
@@ -271,17 +294,20 @@ data := [10.0, 20.0, 30.0, 40.0, 50.0]
 
 // 17-field descriptive statistical summary
 summary := statutils.stats_summary(data)
+println('Mean: ${summary.mean}, Median: ${summary.median}')
 // Mean: 30.0, Median: 30.0, Sample StdDev: 15.81, IQR: 20.0, Skew: 0.0
 
 // OLS Linear Regression
 x := [1.0, 2.0, 3.0, 4.0, 5.0]
 y := [2.0, 4.1, 6.0, 7.9, 10.1]
 reg := statutils.stats_linear_regression(x, y)!
+println('Slope: ${reg.slope}, R²: ${reg.r_squared}')
 // Slope: 2.01, Intercept: 0.01, R²: 0.9997
 
 // Moving Average & Outliers
-ma := statutils.stats_moving_average(data, 3)! // [20.0, 30.0, 40.0]
-outliers := statutils.stats_outliers_iqr([10.0, 11.0, 12.0, 100.0], 1.5) // [100.0]
+ma := statutils.stats_moving_average(data, 3)!
+outliers := statutils.stats_outliers_iqr([10.0, 11.0, 12.0, 100.0], 1.5)
+println('MA: ${ma}, Outliers: ${outliers}')
 ```
 
 ### 15. `stateutils`
@@ -333,6 +359,7 @@ mut ttl := cacheutils.new_ttl[string](60 * time.second)
 val := cacheutils.get_or_set_ttl[string](mut ttl, 'rates', fn () !string {
     return '{"USD": 1.0}'
 })!
+println('Rate: ${val}')
 ```
 
 ### 17. `semverutils`
@@ -343,7 +370,8 @@ v1 := semverutils.parse('v1.2.3-beta.1+build.42')!
 v_bumped := semverutils.bump_minor(v1) // 1.3.0
 
 // Range requirement checks
-is_match := semverutils.satisfies(v_bumped, '^1.2.0')! // true
+is_match := semverutils.satisfies(v_bumped, '^1.2.0')!
+println('Matches: ${is_match}') // true
 ```
 
 ### 18. `flowutils`
@@ -367,6 +395,7 @@ if cb.can_execute() {
 data := flowutils.retry[string](3, 100 * time.millisecond, 2.0, 1 * time.second, fn () !string {
     return 'payload'
 })!
+println('Data: ${data}')
 ```
 
 ### 19. `templateutils`
@@ -390,11 +419,13 @@ import colorutils
 // HEX / RGB / HSL conversions & adjustments
 hex_color := colorutils.hex_to_rgb('#007acc')!
 lighter   := colorutils.lighten(hex_color, 0.2)
+println('Lighter: ${lighter}')
 
 // WCAG 2.1 accessibility auditing
 white := colorutils.RGB{255, 255, 255}
 ratio := colorutils.contrast_ratio(hex_color, white)
 is_aa := colorutils.is_accessible(hex_color, white, 'AA')
+println('Ratio: ${ratio}, AA: ${is_aa}')
 
 // 24-bit Truecolor terminal output
 println(colorutils.fg_rgb('Truecolor Text', hex_color))
@@ -411,6 +442,7 @@ archiveutils.zip_dir('assets/images', 'dist/images.zip')!
 // Inspect and read without disk extraction
 entries := archiveutils.list_entries('dist/images.zip')!
 readme_content := archiveutils.read_entry_string('dist/images.zip', 'README.md')!
+println('Entries: ${entries.len}, Readme: ${readme_content}')
 
 // Extract archive
 archiveutils.unzip_to_dir('dist/images.zip', 'extracted/')!
@@ -424,6 +456,7 @@ import asyncutils
 squares := asyncutils.parallel_map[int, int]([1, 2, 3, 4], 2, fn (n int) int {
     return n * n
 })
+println('Squares: ${squares}')
 
 // WaitGroup synchronization
 mut wg := asyncutils.new_waitgroup()
@@ -456,6 +489,7 @@ all_nums  := regexutils.find_all(r'\d+', 'item 42 price 100')   // ['42', '100']
 
 // Simple replacement
 masked := regexutils.replace(r'\d', 'Pass: 1234', '*') // "Pass: ****"
+println('${first_num}, ${all_nums}, ${masked}')
 ```
 
 ### 24. `mockutils`
@@ -468,10 +502,12 @@ println('${user.name} <${user.email}> (${user.role})')
 
 // Quick test datasets
 users := mockutils.mock_users(10)
+println('Users: ${users.len}')
 
 // Fast lorem placeholder text
 paragraph := mockutils.lorem_text(1, 3, 8)
 words := mockutils.lorem_words(6)
+println('${paragraph}\nWords: ${words}')
 ```
 
 ### 25. `logutils`
@@ -507,6 +543,7 @@ if link := doc.get_element_by_id('main') {
     println(link.text)
 }
 escaped := htmlutils.escape_html('<script>alert("xss")</script>')
+println(escaped)
 ```
 
 ### 28. `bitutils`
@@ -518,11 +555,13 @@ bs.set(0)
 bs.set(5)
 is_set := bs.get(5) // true
 count := bs.count_set() // 2
+println('is_set: ${is_set}, count: ${count}')
 
 // Flag helpers
 mut flags := u32(0)
 flags = bitutils.set_flag(flags, 1 << 2)
 has_flag := bitutils.has_flag(flags, 1 << 2) // true
+println('has_flag: ${has_flag}')
 ```
 
 ### 29. `compressutils`
@@ -532,8 +571,10 @@ import compressutils
 data := 'V is simple, fast, safe, and compiled.'
 compressed := compressutils.gzip_compress_string(data)!
 restored := compressutils.gzip_decompress_string(compressed)!
+println('Restored: ${restored}')
 
 ratio := compressutils.compression_ratio(data.len, compressed.len)
+println('Compression ratio: ${ratio:.1f}%')
 ```
 
 ### 30. `tarutils`
