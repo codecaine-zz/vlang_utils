@@ -138,7 +138,8 @@ fn test_rad_visualizations() {
 
 fn test_clipboard() {
 	$if linux {
-		if os.getenv('DISPLAY').len == 0 && os.getenv('WAYLAND_DISPLAY').len == 0 {
+		if os.getenv('CI') == 'true' && os.getenv('DISPLAY').len == 0
+			&& os.getenv('WAYLAND_DISPLAY').len == 0 {
 			return
 		}
 	}
