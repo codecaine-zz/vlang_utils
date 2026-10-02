@@ -257,3 +257,51 @@ pub fn (mut d Debouncer) can_trigger() bool {
 pub fn (mut d Debouncer) reset() {
 	d.last_trigger = time.Time{}
 }
+
+// ============================================================================
+// 5. Sliding Window Rate Limiter
+// ============================================================================
+
+// SlidingWindowRateLimiter enforces request limits over a moving time window.
+pub struct SlidingWindowRateLimiter {
+mut:
+	max_requests int
+	window       time.Duration
+	timestamps   []i64
+}
+
+// new_sliding_window_rate_limiter initializes a sliding window rate limiter.
+pub fn new_sliding_window_rate_limiter(max_requests int, window time.Duration) !SlidingWindowRateLimiter {
+	if max_requests <= 0 {
+		return error('max_requests must be greater than 0')
+	}
+	if window <= 0 {
+		return error('window must be greater than 0')
+	}
+	return SlidingWindowRateLimiter{
+		max_requests: max_requests
+		window:       window
+		timestamps:   []i64{}
+	}
+}
+
+// allow returns true and records the request if the limit within the moving window is not exceeded.
+pub fn (mut sw SlidingWindowRateLimiter) allow() bool {
+	now_ns := time.now().unix_nano()
+	cutoff_ns := now_ns - sw.window.nanoseconds()
+
+	// Retain only timestamps within the current window
+	mut kept := []i64{}
+	for ts in sw.timestamps {
+		if ts > cutoff_ns {
+			kept << ts
+		}
+	}
+	sw.timestamps = kept
+
+	if sw.timestamps.len < sw.max_requests {
+		sw.timestamps << now_ns
+		return true
+	}
+	return false
+}

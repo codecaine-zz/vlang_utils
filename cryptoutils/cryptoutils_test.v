@@ -92,3 +92,17 @@ fn test_fast_hashes_and_ed25519() {
 	assert ed25519_verify(pub_k, msg, sig) == true
 	assert ed25519_verify(pub_k, 'tampered'.bytes(), sig) == false
 }
+
+fn test_secure_compare_and_totp() {
+	assert secure_compare('secret_token', 'secret_token') == true
+	assert secure_compare('secret_token', 'secret_tokeX') == false
+	assert secure_compare('secret', 'secret_token') == false
+
+	u := generate_ulid()
+	assert u.len == 26
+
+	totp6 := generate_totp('12345678901234567890', 1, 6) or { panic(err) }
+	assert totp6.len == 6
+	totp8 := generate_totp('12345678901234567890', 1, 8) or { panic(err) }
+	assert totp8.len == 8
+}

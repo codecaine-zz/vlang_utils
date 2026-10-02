@@ -779,3 +779,44 @@ fn test_sqlite_security_and_injection_defense() {
 		assert err.msg().contains('null byte')
 	}
 }
+
+fn test_transaction_and_insert_many() {
+	mut db := open_db(':memory:') or { panic(err) }
+	exec_sql(mut db, 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT);') or { panic(err) }
+
+	// Successful transaction
+	transaction(mut db, fn (mut tx_db sqlite.DB) ! {
+		insert_row(mut tx_db, 'items', {
+			'name': 'item1'
+		})!
+		insert_row(mut tx_db, 'items', {
+			'name': 'item2'
+		})!
+	}) or { panic(err) }
+	assert count_rows(mut db, 'items') or { panic(err) } == 2
+
+	// Failed transaction should rollback
+	transaction(mut db, fn (mut tx_db sqlite.DB) ! {
+		insert_row(mut tx_db, 'items', {
+			'name': 'item3'
+		})!
+		return error('forced error to trigger rollback')
+	}) or {}
+	// Count should still be 2
+	assert count_rows(mut db, 'items') or { panic(err) } == 2
+
+	// insert_many
+	inserted := insert_many(mut db, 'items', [
+		{
+			'name': 'batch1'
+		},
+		{
+			'name': 'batch2'
+		},
+		{
+			'name': 'batch3'
+		},
+	]) or { panic(err) }
+	assert inserted == 3
+	assert count_rows(mut db, 'items') or { panic(err) } == 5
+}

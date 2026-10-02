@@ -198,3 +198,14 @@ fn test_clipboard_ci_skip_gate() {
 		assert should_skip_clipboard_test() == false
 	}
 }
+
+fn test_spinner() {
+	mut s := new_spinner('Processing data...')
+	assert s.message == 'Processing data...'
+	frame1 := s.step()
+	assert frame1.contains('Processing data...')
+	s.update('Done!')
+	assert s.message == 'Done!'
+	frame2 := s.step()
+	assert frame2.contains('Done!')
+}

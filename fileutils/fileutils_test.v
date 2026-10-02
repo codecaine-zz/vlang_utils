@@ -268,3 +268,26 @@ fn test_temp_helpers() {
 	assert os.is_dir(td)
 	remove_dir(td) or {}
 }
+
+fn test_write_file_atomic_and_hash() {
+	target := '/tmp/atomic_test.txt'
+	content := 'vlang_utils_atomic_payload_12345'
+	write_file_atomic(target, content) or { panic(err) }
+	assert os.exists(target)
+	read_back := read_text_file(target) or { panic(err) }
+	assert read_back == content
+
+	hash := file_hash_sha256(target) or { panic(err) }
+	assert hash.len == 64
+
+	remove_file(target) or {}
+}
+
+fn test_mime_type() {
+	assert mime_type('index.html') == 'text/html'
+	assert mime_type('/path/to/style.css') == 'text/css'
+	assert mime_type('app.json') == 'application/json'
+	assert mime_type('image.png') == 'image/png'
+	assert mime_type('archive.zip') == 'application/zip'
+	assert mime_type('unknown.xyz123') == 'application/octet-stream'
+}

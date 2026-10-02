@@ -31,6 +31,13 @@ import htmlutils
 import bitutils
 import compressutils
 import tarutils
+import mathutils
+import cronutils
+import urlutils
+import jwtutils
+import eventutils
+import diffutils
+import graphutils
 import time
 
 struct Person {
@@ -48,7 +55,7 @@ pub mut:
 
 fn main() {
 	println(cliutils.bold(cliutils.cyan('==================================================')))
-	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 30-Module Showcase      ')))
+	println(cliutils.bold(cliutils.cyan('     vlang_utils Complete 37-Module Showcase      ')))
 	println(cliutils.bold(cliutils.cyan('==================================================')))
 
 	// 1. FILEUTILS DEMO
@@ -125,7 +132,8 @@ fn main() {
 	// 4. SLICEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('4. [sliceutils] Generic Collection Utilities:')))
 	numbers := [1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10]
-	println(' - Unique numbers: ${sliceutils.unique(numbers)}')
+	unique_nums := sliceutils.unique(numbers)
+	println(' - Unique numbers: ${unique_nums}')
 	chunks := sliceutils.chunk(numbers, 4)
 	println(' - Chunked (size 4): ${chunks}')
 	evens, odds := sliceutils.partition(numbers, fn (n int) bool {
@@ -255,7 +263,7 @@ fn main() {
 	heap.push(42)
 	heap.push(10)
 	heap.push(27)
-	println(' - MinHeap Root: ${heap.pop() or { -1 }}')
+	println(' - MinHeap Root: ${heap.pop() or { -1.0 }}')
 
 	// 14. STATUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('14. [statutils] Comprehensive Statistical Analysis & Regression:')))
@@ -481,5 +489,48 @@ fn main() {
 	unpacked_tar := tarutils.unpack_bytes(packed_tar) or { panic(err) }
 	println(' - Packed TAR: ${packed_tar.len} B, Unpacked: ${unpacked_tar.len} entries (first="${unpacked_tar[0].name}", text="${unpacked_tar[0].data.bytestr()}")')
 
-	println('\n' + cliutils.bold(cliutils.green('✔ All 30 modules in vlang_utils demonstrated successfully!')))
+	// 31. MATHUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('31. [mathutils] 2D Math, Geometry & Number Theory:')))
+	m_val := mathutils.remap(50.0, 0.0, 100.0, 0.0, 1.0)
+	p_a := mathutils.Point2D[f64]{ x: 0.0, y: 0.0 }
+	p_b := mathutils.Point2D[f64]{ x: 3.0, y: 4.0 }
+	println(' - Remap(50): ${m_val}, Distance: ${mathutils.distance(p_a, p_b):.1f}, GCD(84, 18): ${mathutils.gcd(84, 18)}')
+
+	// 32. CRONUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('32. [cronutils] Cron Expression Parsing & Human Summaries:')))
+	cron_human := cronutils.cron_to_human('0 0 * * *')
+	println(' - Human summary of "0 0 * * *": "${cron_human}"')
+
+	// 33. URLUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('33. [urlutils] RFC 3986 URL Parsing & Credential Redaction:')))
+	demo_url := 'https://user:secret123@api.hub.com:8443/v1/data?page=2#top'
+	redacted_u := urlutils.redact_credentials(demo_url)
+	println(' - Redacted: "${redacted_u}"')
+
+	// 34. JWTUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('34. [jwtutils] HS256 Zero-Dependency JSON Web Tokens:')))
+	token_str := jwtutils.sign_simple_token('developer_alice', 'app_secret_key', 3600) or { panic(err) }
+	verified_jwt := jwtutils.verify_jwt(token_str, 'app_secret_key') or { panic(err) }
+	println(' - Verified JWT subject: "${verified_jwt.sub}"')
+
+	// 35. EVENTUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('35. [eventutils] In-Memory Publish-Subscribe Event Dispatcher:')))
+	mut em := eventutils.new_emitter()
+	em.once('greet', fn (msg string) { println(' - [Event Triggered]: Hello, ${msg}!') })
+	em.emit('greet', 'World')
+
+	// 36. DIFFUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('36. [diffutils] Unified Diff Generation & Programmatic Diffs:')))
+	u_diff := diffutils.unified_diff('version = 1.0\nenabled = false', 'version = 2.0\nenabled = true', 'config.ini')
+	println(' - Unified diff output lines: ${u_diff.split_into_lines().len}')
+
+	// 37. GRAPHUTILS DEMO
+	println('\n' + cliutils.bold(cliutils.yellow('37. [graphutils] Directed Acyclic Graphs (DAG) & Topological Sort:')))
+	mut dag := graphutils.new_graph[string]()
+	dag.add_edge('build', 'test')
+	dag.add_edge('test', 'deploy')
+	sorted_order := dag.topological_sort() or { panic(err) }
+	println(' - Dependency Order: ${sorted_order}')
+
+	println('\n' + cliutils.bold(cliutils.green('✔ All 37 modules in vlang_utils demonstrated successfully!')))
 }

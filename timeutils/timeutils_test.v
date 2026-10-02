@@ -99,3 +99,53 @@ fn test_benchmark_fn() {
 	assert res.ops_per_sec > 0.0
 	assert res.str().contains('arithmetic_test')
 }
+
+fn test_advanced_time_helpers() {
+	d1 := parse_duration('1h 30m') or { panic(err) }
+	assert d1.hours() == 1.5
+
+	d2 := parse_duration('500ms') or { panic(err) }
+	assert d2.milliseconds() == 500
+
+	d3 := parse_duration('45s') or { panic(err) }
+	assert d3.seconds() == 45
+
+	// Friday 2026-09-11 + 1 business day -> Monday 2026-09-14
+	fri := time.new(time.Time{
+		year:  2026
+		month: 9
+		day:   11
+	})
+	mon := add_business_days(fri, 1)
+	assert mon.day == 14
+	assert mon.month == 9
+
+	// TimeRange
+	t_start := time.new(time.Time{
+		year:  2026
+		month: 9
+		day:   1
+	})
+	t_mid := time.new(time.Time{
+		year:  2026
+		month: 9
+		day:   5
+	})
+	t_end := time.new(time.Time{
+		year:  2026
+		month: 9
+		day:   10
+	})
+	range1 := TimeRange{
+		start: t_start
+		end:   t_end
+	}
+	assert range1.contains(t_mid) == true
+	assert range1.contains(fri) == false
+
+	range2 := TimeRange{
+		start: t_mid
+		end:   fri
+	}
+	assert range1.overlaps(range2) == true
+}

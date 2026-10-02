@@ -36,6 +36,13 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`bitutils`](#28-bitutils) | Dynamic bitsets (`BitSet`), bitwise operations, popcount, binary string conversions, and bitmask flag manipulation. |
 | [`compressutils`](#29-compressutils) | Fast compression & decompression for Gzip, Zlib, Deflate, and Zstandard strings and byte buffers. |
 | [`tarutils`](#30-tarutils) | In-memory and on-disk TAR archive creation, unpacking, directory archiving, and tarball inspection. |
+| [`mathutils`](#31-mathutils) | 2D Math, spatial geometry, and number theory: `lerp`, `remap`, `clamp`, `round_to_step`, `Point2D`, `Rect` intersection, `gcd`, `lcm`, and power-of-two checks. |
+| [`cronutils`](#32-cronutils) | Standard 5-field cron parsing, next execution calculation (`next_after`), matching, and human-readable English summaries (`cron_to_human`). |
+| [`urlutils`](#33-urlutils) | RFC 3986 URL parsing (`parse_url`), component inspection, path segment joining (`join_path`), and credential redaction (`redact_credentials`). |
+| [`jwtutils`](#34-jwtutils) | Lightweight, zero-dependency HS256 JSON Web Token signing (`sign_jwt`) and verification (`verify_jwt`) with expiration checks. |
+| [`eventutils`](#35-eventutils) | In-memory publish-subscribe event dispatcher (`EventEmitter`, `on`, `once`, `off`, `emit`). |
+| [`diffutils`](#36-diffutils) | Line-level text diffing (`diff_lines`) and standard Git-style unified diff generation (`unified_diff`). |
+| [`graphutils`](#37-graphutils) | Generic Directed Acyclic Graphs (`Graph[T]`), cycle detection, Kahn's topological sort (`topological_sort`), BFS, and DFS. |
 
 ---
 
@@ -591,24 +598,110 @@ entries := tarutils.unpack_bytes(tar_bytes)!
 println(entries[0].name) // "hello.txt"
 ```
 
+### 31. `mathutils`
+```v
+import mathutils
+
+// Interpolation & mapping
+val := mathutils.remap(50.0, 0.0, 100.0, 0.0, 1.0) // 0.5
+clamped := mathutils.clamp(120.0, 0.0, 100.0)       // 100.0
+snapped := mathutils.round_to_step(4.78, 0.25)      // 4.75
+
+// Geometry & Number Theory
+p1 := mathutils.Point2D[f64]{ x: 0.0, y: 0.0 }
+p2 := mathutils.Point2D[f64]{ x: 3.0, y: 4.0 }
+dist := mathutils.distance(p1, p2)                  // 5.0
+gcd_val := mathutils.gcd(84, 18)                    // 6
+```
+
+### 32. `cronutils`
+```v
+import cronutils
+import time
+
+// Parse standard 5-field cron
+sched := cronutils.parse_cron('*/15 9-17 * * 1-5')!
+next := sched.next_after(time.now())!
+println('Next run: ${next}')
+
+// Human description
+human := cronutils.cron_to_human('0 0 * * *')
+println(human) // "Every day at midnight"
+```
+
+### 33. `urlutils`
+```v
+import urlutils
+
+// Parse RFC 3986 URL
+u := urlutils.parse_url('https://admin:secret@api.io:8443/v1/users?page=1#top')!
+println('Host: ${u.host_with_port()}') // "api.io:8443"
+println('Path: ${u.path_segments()}')  // ["v1", "users"]
+
+// Redact credentials for logs
+redacted := urlutils.redact_credentials('postgres://user:pass@db:5432/main')
+println(redacted) // "postgres://user:***@db:5432/main"
+```
+
+### 34. `jwtutils`
+```v
+import jwtutils
+
+// Sign and verify HS256 JWT
+token := jwtutils.sign_simple_token('user_123', 'secret_key', 3600)!
+claims := jwtutils.verify_jwt(token, 'secret_key')!
+println('Subject: ${claims.sub}')
+```
+
+### 35. `eventutils`
+```v
+import eventutils
+
+mut em := eventutils.new_emitter()
+em.on('user_login', fn (user string) {
+    println('Welcome ${user}!')
+})
+em.emit('user_login', 'Alice')
+```
+
+### 36. `diffutils`
+```v
+import diffutils
+
+diff := diffutils.unified_diff('hello\nworld', 'hello\nvlang', 'greeting.txt')
+print(diff)
+```
+
+### 37. `graphutils`
+```v
+import graphutils
+
+mut dag := graphutils.new_graph[string]()
+dag.add_edge('build', 'test')
+dag.add_edge('test', 'deploy')
+
+order := dag.topological_sort()!
+println(order) // ["build", "test", "deploy"]
+```
+
 ---
 
 ## Running Demos
 
-You can run individual standalone demos for any utility module or execute all 30 demos sequentially:
+You can run individual standalone demos for any utility module or execute all 37 demos sequentially:
 
 ```bash
-# Run all 30 module demos sequentially with execution timing
+# Run all 37 module demos sequentially with execution timing
 v run demos/run_all_demos.v
 
 # Or run any specific module demo directly
 v run demos/demo_fileutils.v
 v run demos/demo_sqliteutils.v
-v run demos/demo_flowutils.v
-v run demos/demo_cryptoutils.v
-# ... (see demos/ folder for all 30 demo scripts)
+v run demos/demo_mathutils.v
+v run demos/demo_jwtutils.v
+# ... (see demos/ folder for all 37 demo scripts)
 
-# Run the interactive console dashboard
+# Run the complete showcase console dashboard
 v run main.v
 ```
 
@@ -622,6 +715,6 @@ v test .
 
 ## API Documentation
 
-For the complete API reference with comprehensive, runnable examples for all 686 public functions and structs, see [API.md](API.md).
+For the complete API reference with comprehensive, runnable examples for all public functions and structs, see [API.md](API.md).
 
 

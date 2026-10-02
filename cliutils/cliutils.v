@@ -763,3 +763,49 @@ pub fn read_from_clipboard() string {
 	}
 	return cb.paste()
 }
+
+// ============================================================================
+// Terminal Spinner & Confirmation Prompt
+// ============================================================================
+
+// Spinner displays an animated terminal loading indicator.
+@[heap]
+pub struct Spinner {
+mut:
+	frames    []string = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+	frame_idx int
+	message   string
+	active    bool
+}
+
+// new_spinner creates a new Spinner with a status message.
+pub fn new_spinner(message string) &Spinner {
+	return &Spinner{
+		message: message
+		active:  false
+	}
+}
+
+// step advances the spinner by one frame and returns the formatted frame string.
+pub fn (mut s Spinner) step() string {
+	frame := s.frames[s.frame_idx % s.frames.len]
+	s.frame_idx++
+	return cyan(frame) + ' ' + s.message
+}
+
+// update changes the spinner's message text.
+pub fn (mut s Spinner) update(message string) {
+	s.message = message
+}
+
+// confirm prompts the user for a Yes/No question and returns true for yes, false for no.
+pub fn confirm(prompt string, default_yes bool) bool {
+	options := if default_yes { '[Y/n]' } else { '[y/N]' }
+	print('${prompt} ${options}: ')
+	os.flush()
+	input := os.get_line().trim_space().to_lower()
+	if input.len == 0 {
+		return default_yes
+	}
+	return input == 'y' || input == 'yes'
+}
