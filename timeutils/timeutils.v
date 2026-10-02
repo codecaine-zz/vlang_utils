@@ -121,12 +121,12 @@ pub fn from_iso8601(s string) !time.Time {
 // start_of_day returns a Time set to 00:00:00.000 for the date of t.
 pub fn start_of_day(t time.Time) time.Time {
 	return time.new(time.Time{
-		year: t.year
-		month: t.month
-		day: t.day
-		hour: 0
-		minute: 0
-		second: 0
+		year:       t.year
+		month:      t.month
+		day:        t.day
+		hour:       0
+		minute:     0
+		second:     0
 		nanosecond: 0
 	})
 }
@@ -134,12 +134,12 @@ pub fn start_of_day(t time.Time) time.Time {
 // end_of_day returns a Time set to 23:59:59.999999999 for the date of t.
 pub fn end_of_day(t time.Time) time.Time {
 	return time.new(time.Time{
-		year: t.year
-		month: t.month
-		day: t.day
-		hour: 23
-		minute: 59
-		second: 59
+		year:       t.year
+		month:      t.month
+		day:        t.day
+		hour:       23
+		minute:     59
+		second:     59
 		nanosecond: 999_999_999
 	})
 }
@@ -170,7 +170,7 @@ mut:
 pub fn new_stopwatch() Stopwatch {
 	mut sw := Stopwatch{
 		start_time: time.now()
-		running: true
+		running:    true
 	}
 	return sw
 }
@@ -255,10 +255,10 @@ pub fn benchmark_fn(name string, iterations int, f fn ()) BenchmarkResult {
 	ops_sec := if total_sec > 0.0 { f64(iters) / total_sec } else { 0.0 }
 
 	return BenchmarkResult{
-		name: name
-		iterations: iters
+		name:              name
+		iterations:        iters
 		total_duration_ms: total_ms
-		avg_duration_ms: avg_ms
-		ops_per_sec: ops_sec
+		avg_duration_ms:   avg_ms
+		ops_per_sec:       ops_sec
 	}
 }

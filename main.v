@@ -185,11 +185,11 @@ fn main() {
 		'DISK': 62.0
 	}, 20))
 	tree := cliutils.TreeNode{
-		label: 'Project Root'
+		label:    'Project Root'
 		children: [
 			cliutils.TreeNode{ label: 'src/main.v' },
 			cliutils.TreeNode{
-				label: 'modules'
+				label:    'modules'
 				children: [
 					cliutils.TreeNode{ label: 'sysutils' },
 					cliutils.TreeNode{ label: 'netutils' },
@@ -283,10 +283,10 @@ fn main() {
 	}
 
 	mut app_store := stateutils.new_app_state[AppStateDemo](app_name, AppStateDemo{
-		theme: 'system_dark'
-		window_width: 1280
+		theme:         'system_dark'
+		window_width:  1280
 		window_height: 800
-		recent_files: ['src/main.v', 'v.mod']
+		recent_files:  ['src/main.v', 'v.mod']
 	})
 	println(' - Recommended OS Path: ${app_store.path()}')
 
@@ -426,9 +426,9 @@ fn main() {
 	// 25. LOGUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('25. [logutils] Structured Logging & Multi-Target Dispatch:')))
 	log_demo := logutils.new_logger(
-		level: .info
-		output: .console
-		use_color: true
+		level:          .info
+		output:         .console
+		use_color:      true
 		show_timestamp: true
 	)
 	log_demo.info('Application engine initialized')

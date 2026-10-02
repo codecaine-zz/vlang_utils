@@ -38,10 +38,10 @@ fn test_iso8601() {
 
 fn test_calendar_helpers() {
 	t := time.new(time.Time{
-		year: 2026
-		month: 9
-		day: 10
-		hour: 14
+		year:   2026
+		month:  9
+		day:    10
+		hour:   14
 		minute: 30
 		second: 15
 	})
@@ -54,17 +54,17 @@ fn test_calendar_helpers() {
 
 	// 2026-09-10 is Thursday, 2026-09-12 is Saturday
 	sat := time.new(time.Time{
-		year: 2026
+		year:  2026
 		month: 9
-		day: 12
+		day:   12
 	})
 	assert is_weekend(sat) == true
 	assert is_weekend(t) == false
 
 	t2 := time.new(time.Time{
-		year: 2026
+		year:  2026
 		month: 9
-		day: 15
+		day:   15
 	})
 	assert days_between(t, t2) == 5
 }

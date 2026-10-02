@@ -99,12 +99,12 @@ fn test_json_struct_store_helpers() {
 	assert table_exists(mut db, 'items') or { panic(err) } == true
 
 	item1 := Item{
-		id: 'item_1'
+		id:    'item_1'
 		title: 'Keyboard'
 		price: 100
 	}
 	item2 := Item{
-		id: 'item_2'
+		id:    'item_2'
 		title: 'Mouse'
 		price: 50
 	}
@@ -335,7 +335,7 @@ fn test_struct_exists() {
 	create_json_store(mut db, 'products') or { panic(err) }
 
 	item := Item{
-		id: 'p1'
+		id:    'p1'
 		title: 'Widget'
 		price: 5
 	}
@@ -471,15 +471,15 @@ fn test_execute_batch_params() {
 
 	stmts := [
 		ParamStatement{
-			query: 'INSERT INTO log VALUES (?, ?)'
+			query:  'INSERT INTO log VALUES (?, ?)'
 			params: ['boot', 'INFO']
 		},
 		ParamStatement{
-			query: 'INSERT INTO log VALUES (?, ?)'
+			query:  'INSERT INTO log VALUES (?, ?)'
 			params: ['ready', 'INFO']
 		},
 		ParamStatement{
-			query: 'INSERT INTO log VALUES (?, ?)'
+			query:  'INSERT INTO log VALUES (?, ?)'
 			params: ['error', 'ERROR']
 		},
 	]
@@ -489,11 +489,11 @@ fn test_execute_batch_params() {
 	// Rollback on error: inject a bad statement into the batch
 	bad_stmts := [
 		ParamStatement{
-			query: 'INSERT INTO log VALUES (?, ?)'
+			query:  'INSERT INTO log VALUES (?, ?)'
 			params: ['tx_start', 'INFO']
 		},
 		ParamStatement{
-			query: 'INSERT INTO nonexistent VALUES (?)'
+			query:  'INSERT INTO nonexistent VALUES (?)'
 			params: ['x']
 		},
 	]
@@ -568,15 +568,15 @@ fn test_add_columns_batch() {
 
 	new_cols := [
 		ColumnDef{
-			name: 'price'
+			name:     'price'
 			sql_type: 'REAL'
 		},
 		ColumnDef{
-			name: 'stock'
+			name:     'stock'
 			sql_type: 'INTEGER NOT NULL DEFAULT 0'
 		},
 		ColumnDef{
-			name: 'sku'
+			name:     'sku'
 			sql_type: 'TEXT'
 		},
 	]
@@ -593,11 +593,11 @@ fn test_add_columns_rollback_on_bad_name() {
 	// Second column has an invalid name — should rollback both
 	bad_cols := [
 		ColumnDef{
-			name: 'valid_col'
+			name:     'valid_col'
 			sql_type: 'TEXT'
 		},
 		ColumnDef{
-			name: 'bad col!'
+			name:     'bad col!'
 			sql_type: 'TEXT'
 		}, // space + bang disallowed
 	]
