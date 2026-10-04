@@ -85,6 +85,18 @@ published reference vectors (RFCs, SciPy) wherever they exist.
 - **New module `markdownutils`**: CommonMark-style `to_html` with GFM tables,
   task lists, nested lists, heading IDs, safe links, plus `toc`, `headings`,
   `slug`, `to_plain_text`.
+- **New module `webutils`**: an Express-style web framework that depends only on
+  vlib. It includes:
+  - Routing with params, optional params, wildcards and groups; automatic
+    HEAD, OPTIONS and 405 handling.
+  - A secure, EJS-compatible template engine with layouts, partials, loops,
+    45+ filters and auto-escaping. Expressions are sandboxed, so templates
+    cannot execute code.
+  - Built-in middleware: security headers with a CSP nonce, CORS, rate
+    limiting, CSRF, sessions and flash, logger, request ID, gzip, basic and
+    bearer auth, body limits, and static files with ETag and 304 support.
+  - Signed cookies, a bounded multipart parser, JSON binding, `send_file` and
+    `download`, and `app.request(...)` for in-process testing.
 - **strutils / sliceutils / mathutils / validutils / timeutils / httputils**:
   many new hardened helpers (see `API.md`).
 - **jwtutils**: HS256/384/512 (`JWTAlgorithm`), `sign_jwt_with`,

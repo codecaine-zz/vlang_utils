@@ -2,7 +2,7 @@
 
 A comprehensive suite of ergonomic, production-grade V utility modules designed for rapid application development (RAD). Never write common boilerplate from scratch again.
 
-> **v2.0** — every module hardened (security fixes, real bug fixes, standards compliance) and extended with hundreds of new, tested utilities, plus two new modules (`jsonutils`, `markdownutils`). Fully backward compatible. See [CHANGELOG.md](CHANGELOG.md).
+> **v2.0** — every module hardened (security fixes, real bug fixes, standards compliance) and extended with hundreds of new, tested utilities, plus three new modules (`jsonutils`, `markdownutils`, `webutils`). Fully backward compatible. See [CHANGELOG.md](CHANGELOG.md).
 
 **Engineering principles:** standards first (RFCs and specs are cited in code and verified with their published test vectors), secure by default (CSPRNG, constant-time comparisons, escaping, `alg` pinning), predictable complexity (documented and tested), and zero third-party dependencies.
 
@@ -49,6 +49,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`graphutils`](#37-graphutils) | Directed `Graph[T]` (topo sort, BFS/DFS, shortest path, SCC, cycle finding) and `WeightedGraph[T]` (Dijkstra, A*, Kruskal MST, components), `UnionFind`. |
 | [`jsonutils`](#38-jsonutils) | **New.** RFC 6901 JSON Pointer get/set, RFC 7386 Merge Patch, canonical (sorted-key) encoding, deep equality, structural diff, flatten, pretty/minify. |
 | [`markdownutils`](#39-markdownutils) | **New.** Safe Markdown → HTML (GFM tables, task lists, fenced code, nested lists), heading anchors, TOC generation, plain-text previews. |
+| [`webutils`](#40-webutils) | **New.** Express-style web framework with a secure EJS-style template engine and batteries included (sessions, CSRF, CORS, rate limiting, security headers, static files, multipart, gzip, signed cookies, in-process testing). Zero third-party deps. |
 
 ---
 
@@ -718,14 +719,79 @@ html := markdownutils.to_html('# Hello\n\n- [x] **safe** by default\n\n[x](javas
 println(markdownutils.toc('# A\n## B', 3))
 ```
 
+### 40. `webutils`
+An Express-style framework. It replaces the usual stack of npm packages (helmet, cors, express-rate-limit, csurf, express-session, connect-flash, morgan, compression, serve-static, multer, body-parser, cookie-parser, supertest, ejs) with built-in, tested equivalents.
+
+```v
+import webutils
+import x.json2
+
+fn main() {
+	mut app := webutils.new_app(secret: 'change-me') // security headers are on by default
+	app.views.add('layout', '<title><%= title %></title><%- body %>') or { panic(err) }
+	app.views.add('home', "<% layout 'layout' %><% for u in users %><p><%= u | title %></p><% end %>") or {
+		panic(err)
+	}
+
+	app.use(webutils.logger())
+	app.use(webutils.sessions())
+	app.use(webutils.csrf())
+	app.use(webutils.rate_limit(max: 100, window_ms: 60_000))
+	app.static('/assets', 'public')
+
+	app.get('/', fn (mut c webutils.Context) ! {
+		c.render('home', {
+			'title': json2.Any('Users')
+			'users': webutils.to_any(['ann', '<script>bob</script>']) // auto-escaped
+		})!
+	})
+	app.get('/api/users/:id', fn (mut c webutils.Context) ! {
+		if c.param('id').int() <= 0 {
+			return webutils.http_error(400, 'bad id')
+		}
+		c.json({
+			'id': c.param('id')
+		})
+	})
+
+	assert app.request(path: '/api/users/7').body == '{"id":"7"}' // built-in supertest
+	app.listen(3000)
+}
+```
+
+**Template cheatsheet** (EJS-compatible):
+
+| Syntax | Meaning |
+| :--- | :--- |
+| `<%= expr %>` / `<%- expr %>` | HTML-escaped output / raw output |
+| `<%# note %>` / `<%%` | comment / literal `<%` |
+| `<% if x %>…<% elif y %>…<% else %>…<% end %>` | conditionals (`<% } else { %>` also works) |
+| `<% for i, item in items %>…<% else %>…<% end %>` | loops with `loop.index`, `loop.first`, `loop.last` |
+| `<% set total = a + b %>` | variables |
+| `<%- include('partials/nav') %>` / `<% layout 'main' %>` + `<%- body %>` | partials and layouts |
+| `<%= name \| upper \| truncate(10) %>` | 45+ filters (date, json, url, fixed, plural, default, join, …) |
+| `-%>` / `<%_ _%>` | whitespace trimming |
+
+**Security model.** Templates cannot run code: expressions use a sandboxed evaluator, so server-side template injection (SSTI) is impossible. Other protections:
+
+- Output is auto-escaped, and `json` output is safe to embed in `<script>`.
+- Includes, layouts and static files cannot escape their root directories, and dotfiles are hidden.
+- A per-request CSP nonce is available to templates.
+- Cookies are signed with HMAC, and CSRF uses signed double-submit tokens.
+- Header values are stripped of CR/LF, which blocks header injection; `safe_redirect` blocks open redirects.
+- Body size is limited; internal error messages are never sent to clients unless `debug: true`.
+
+> [!TIP]
+> V 0.5.2 compiler caveat: inside handler closures, return errors with `return webutils.http_error(status, msg)` or `return error(msg)`. Returning a custom `IError` value from a closure (for example `return webutils.new_http_error(...)`) makes the compiler run out of memory.
+
 ---
 
 ## Running Demos
 
-You can run individual standalone demos for any utility module or execute all 39 demos sequentially:
+You can run individual standalone demos for any utility module or execute all 40 demos sequentially:
 
 ```bash
-# Run all 39 module demos sequentially with execution timing
+# Run all 40 module demos sequentially with execution timing
 v run demos/run_all_demos.v
 
 # Or run any specific module demo directly
@@ -733,7 +799,7 @@ v run demos/demo_fileutils.v
 v run demos/demo_sqliteutils.v
 v run demos/demo_mathutils.v
 v run demos/demo_jwtutils.v
-# ... (see demos/ folder for all 39 demo scripts)
+# ... (see demos/ folder for all 40 demo scripts)
 
 # Run the complete showcase console dashboard
 v run main.v
