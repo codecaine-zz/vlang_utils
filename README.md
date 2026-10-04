@@ -724,7 +724,7 @@ An Express-style framework. It replaces the usual stack of npm packages (helmet,
 
 ```v
 import webutils
-import x.json2
+import json2
 
 fn main() {
 	mut app := webutils.new_app(secret: 'change-me') // security headers are on by default
