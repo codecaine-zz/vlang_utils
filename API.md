@@ -613,6 +613,38 @@ fileutils.write_csv('report.csv', table, `,`)!
 
 ---
 
+### `parse_csv(content string, delimiter rune) [][]string`
+
+Parses in-memory CSV or TSV content into a 2D slice of strings according to RFC 4180. Delimiter defaults to `,` if `0` is passed. Skips comment lines starting with `#`.
+
+```v
+csv_text := 'id,name,role\n1,Alice,admin\n2,Bob,user'
+rows := fileutils.parse_csv(csv_text, `,`)
+assert rows.len == 3
+assert rows[1][1] == 'Alice'
+```
+
+---
+
+### `parse_csv_with(content string, opts CsvOptions) [][]string`
+
+Parses CSV or TSV content with configurable options (`delimiter`, `comment` rune, `trim` boolean). Supports complex RFC 4180 multi-line quoted fields, escaped quotes (`""`), and comment line skipping.
+
+```v
+content := '# Exported user directory\nid, name ,notes\n1, Alice ,"Hello, ""world"""\n# Inactive accounts\n2, Bob ,"two\nlines"'
+rows := fileutils.parse_csv_with(content,
+	delimiter: `,`
+	comment: `#`
+	trim: true
+)
+assert rows.len == 3
+assert rows[1][1] == 'Alice'
+assert rows[1][2] == 'Hello, "world"'
+assert rows[2][2] == 'two\nlines'
+```
+
+---
+
 ### `temp_file(prefix string, suffix string) !string`
 
 Creates a new empty temporary file with the given prefix and suffix and returns its absolute path.

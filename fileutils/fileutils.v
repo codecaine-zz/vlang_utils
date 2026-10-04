@@ -273,8 +273,25 @@ pub fn read_csv(path string, delimiter rune) ![][]string {
 }
 
 // parse_csv parses CSV/TSV text (RFC 4180) into rows. Delimiter defaults to ',' if rune is 0.
+// Skips lines beginning with '#' comments.
 pub fn parse_csv(content string, delimiter rune) [][]string {
-	delim := if delimiter == 0 { `,` } else { delimiter }
+	return parse_csv_with(content, delimiter: delimiter, comment: `#`, trim: false)
+}
+
+// CsvOptions configures parse_csv_with.
+@[params]
+pub struct CsvOptions {
+pub:
+	delimiter rune = `,` // field separator (0 = ',')
+	comment   rune = `#` // when non-zero, lines starting with this rune (e.g. `#`) are skipped
+	trim      bool // trim surrounding whitespace from unquoted fields
+}
+
+// parse_csv_with parses CSV/TSV text (RFC 4180) with options, e.g.
+// `parse_csv_with(text, delimiter: `\t`, comment: `#`, trim: true)`.
+// Quoted fields may contain delimiters, newlines, comment runes and "" escaped quotes.
+pub fn parse_csv_with(content string, opts CsvOptions) [][]string {
+	delim := if opts.delimiter == 0 { `,` } else { opts.delimiter }
 	mut rows := [][]string{}
 	mut row := []string{}
 	mut field := []rune{}
@@ -295,18 +312,26 @@ pub fn parse_csv(content string, delimiter rune) [][]string {
 			} else {
 				field << r
 			}
+		} else if opts.comment != 0 && r == opts.comment && !row_has_data && field.len == 0 {
+			// comment line: skip to the end of the line
+			for i < runes.len && runes[i] != `\n` && runes[i] != `\r` {
+				i++
+			}
+			if i < runes.len && runes[i] == `\r` && i + 1 < runes.len && runes[i + 1] == `\n` {
+				i++
+			}
 		} else if r == `"` {
 			in_quotes = true
 			row_has_data = true
 		} else if r == delim {
-			row << field.string().trim_space()
+			row << csv_field(field, opts.trim)
 			field.clear()
 			row_has_data = true
 		} else if r == `\n` || r == `\r` {
 			if r == `\r` && i + 1 < runes.len && runes[i + 1] == `\n` {
 				i++
 			}
-			f := field.string().trim_space()
+			f := csv_field(field, opts.trim)
 			if row_has_data || f.len > 0 {
 				row << f
 				rows << row
@@ -319,12 +344,17 @@ pub fn parse_csv(content string, delimiter rune) [][]string {
 		}
 		i++
 	}
-	f := field.string().trim_space()
+	f := csv_field(field, opts.trim)
 	if row_has_data || f.len > 0 {
 		row << f
 		rows << row
 	}
 	return rows
+}
+
+fn csv_field(field []rune, trim bool) string {
+	s := field.string()
+	return if trim { s.trim_space() } else { s }
 }
 
 // write_csv writes a 2D slice of strings to disk as a CSV or TSV file. Delimiter defaults to ',' if rune is 0.

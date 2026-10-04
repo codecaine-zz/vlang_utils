@@ -97,6 +97,7 @@ published reference vectors (RFCs, SciPy) wherever they exist.
     bearer auth, body limits, and static files with ETag and 304 support.
   - Signed cookies, a bounded multipart parser, JSON binding, `send_file` and
     `download`, and `app.request(...)` for in-process testing.
+- **fileutils**: in-memory RFC 4180 `parse_csv` and `parse_csv_with` (`CsvOptions` supporting custom delimiters, `#` comment skipping, and whitespace trimming), `write_file_atomic`, `file_hash_sha256`, and MIME type detection.
 - **strutils / sliceutils / mathutils / validutils / timeutils / httputils**:
   many new hardened helpers (see `API.md`).
 - **jwtutils**: HS256/384/512 (`JWTAlgorithm`), `sign_jwt_with`,
