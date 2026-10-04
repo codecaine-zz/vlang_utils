@@ -32,17 +32,19 @@ pub fn load_struct_from_file[T](path string) !T {
 }
 
 // Appends a single line to a text file, creating the file if needed.
+// Lines are newline-separated without a trailing newline. Uses O_APPEND, so cost is O(1) per call.
 pub fn append_line_to_file(path string, line string) ! {
 	ensure_dir_exists(path) or { return err }
-	mut content := ''
-	if os.exists(path) {
-		content = os.read_file(path) or { return err }
+	needs_sep := os.exists(path) && os.file_size(path) > 0
+	mut f := os.open_append(path) or { return err }
+	defer {
+		f.close()
 	}
-	if content.len > 0 {
-		content += '\n'
+	if needs_sep {
+		f.write_string('\n' + line) or { return err }
+	} else {
+		f.write_string(line) or { return err }
 	}
-	content += line
-	os.write_file(path, content) or { return err }
 }
 
 // Writes a text file, creating parent directories automatically.
@@ -185,12 +187,21 @@ pub fn list_files(dir string, recursive bool) ![]string {
 		return files
 	}
 
-	os.walk(dir, fn [mut files] (file string) {
-		if !os.is_dir(file) {
-			files << file
-		}
-	})
+	walk_files(dir, mut files)
 	return files
+}
+
+// walk_files collects regular files under dir recursively without following directory symlinks.
+fn walk_files(dir string, mut out []string) {
+	entries := os.ls(dir) or { return }
+	for entry in entries {
+		full_path := os.join_path(dir, entry)
+		if os.is_dir(full_path) && !os.is_link(full_path) {
+			walk_files(full_path, mut out)
+		} else if !os.is_dir(full_path) {
+			out << full_path
+		}
+	}
 }
 
 // list_files_with_ext returns files in dir matching the specified file extension (e.g. "json" or ".json").
@@ -254,31 +265,64 @@ pub fn file_stem(path string) string {
 }
 
 // read_csv reads a CSV or TSV file into a 2D slice of strings. Delimiter defaults to ',' if rune is 0.
+// Follows RFC 4180: quoted fields may contain delimiters, newlines and "" escaped quotes.
+// Fields are whitespace-trimmed and blank lines are skipped.
 pub fn read_csv(path string, delimiter rune) ![][]string {
 	content := os.read_file(path) or { return err }
+	return parse_csv(content, delimiter)
+}
+
+// parse_csv parses CSV/TSV text (RFC 4180) into rows. Delimiter defaults to ',' if rune is 0.
+pub fn parse_csv(content string, delimiter rune) [][]string {
 	delim := if delimiter == 0 { `,` } else { delimiter }
-	lines := content.split_into_lines()
 	mut rows := [][]string{}
-	for line in lines {
-		trimmed := line.trim_space()
-		if trimmed.len == 0 {
-			continue
-		}
-		mut cols := []string{}
-		mut current := ''
-		mut in_quotes := false
-		for r in trimmed.runes() {
+	mut row := []string{}
+	mut field := []rune{}
+	mut in_quotes := false
+	mut row_has_data := false
+	runes := content.runes()
+	mut i := 0
+	for i < runes.len {
+		r := runes[i]
+		if in_quotes {
 			if r == `"` {
-				in_quotes = !in_quotes
-			} else if r == delim && !in_quotes {
-				cols << current.trim_space()
-				current = ''
+				if i + 1 < runes.len && runes[i + 1] == `"` {
+					field << `"`
+					i++
+				} else {
+					in_quotes = false
+				}
 			} else {
-				current += r.str()
+				field << r
 			}
+		} else if r == `"` {
+			in_quotes = true
+			row_has_data = true
+		} else if r == delim {
+			row << field.string().trim_space()
+			field.clear()
+			row_has_data = true
+		} else if r == `\n` || r == `\r` {
+			if r == `\r` && i + 1 < runes.len && runes[i + 1] == `\n` {
+				i++
+			}
+			f := field.string().trim_space()
+			if row_has_data || f.len > 0 {
+				row << f
+				rows << row
+			}
+			row = []string{}
+			field.clear()
+			row_has_data = false
+		} else {
+			field << r
 		}
-		cols << current.trim_space()
-		rows << cols
+		i++
+	}
+	f := field.string().trim_space()
+	if row_has_data || f.len > 0 {
+		row << f
+		rows << row
 	}
 	return rows
 }
@@ -329,19 +373,34 @@ pub fn write_file_atomic(path string, content string) ! {
 	tmp_name := '.tmp_${os.file_name(path)}_${os.getpid()}_${rand.ulid()}'
 	tmp_path := os.join_path(dir, tmp_name)
 	os.write_file(tmp_path, content) or { return err }
-	os.mv_by_cp(tmp_path, path) or {
-		os.rm(tmp_path) or {}
-		return err
+	// rename(2) is atomic on POSIX within one filesystem; readers see either the old or new file.
+	os.rename(tmp_path, path) or {
+		os.mv_by_cp(tmp_path, path) or {
+			os.rm(tmp_path) or {}
+			return err
+		}
 	}
 }
 
-// file_hash_sha256 calculates the hexadecimal SHA-256 checksum of a file.
+// file_hash_sha256 calculates the hexadecimal SHA-256 checksum of a file, streaming in 64 KiB chunks.
 pub fn file_hash_sha256(path string) !string {
 	if !os.exists(path) {
 		return error('file does not exist: ${path}')
 	}
-	content := os.read_bytes(path) or { return err }
-	return sha256.hexhash(content.bytestr())
+	mut f := os.open(path) or { return err }
+	defer {
+		f.close()
+	}
+	mut d := sha256.new()
+	mut buf := []u8{len: 64 * 1024}
+	for {
+		n := f.read(mut buf) or { break }
+		if n <= 0 {
+			break
+		}
+		d.write(buf[..n]) or { return err }
+	}
+	return d.sum([]u8{}).hex()
 }
 
 // mime_type returns the MIME content type based on the file extension and signature.

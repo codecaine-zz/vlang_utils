@@ -2,47 +2,53 @@
 
 A comprehensive suite of ergonomic, production-grade V utility modules designed for rapid application development (RAD). Never write common boilerplate from scratch again.
 
+> **v2.0** — every module hardened (security fixes, real bug fixes, standards compliance) and extended with hundreds of new, tested utilities, plus two new modules (`jsonutils`, `markdownutils`). Fully backward compatible. See [CHANGELOG.md](CHANGELOG.md).
+
+**Engineering principles:** standards first (RFCs and specs are cited in code and verified with their published test vectors), secure by default (CSPRNG, constant-time comparisons, escaping, `alg` pinning), predictable complexity (documented and tested), and zero third-party dependencies.
+
 ## Included Modules
 
 | Module | Description |
 | :--- | :--- |
-| [`fileutils`](#1-fileutils) | JSON serialization, text operations, CSV parsing, copy/move, recursive listing, human-readable file sizes. |
+| [`fileutils`](#1-fileutils) | JSON/NDJSON, RFC 4180 CSV, atomic writes, streaming hash/`tail`/`head`, `safe_join` (path-traversal guard), glob `find_files`, MIME sniffing, byte-size parse/format. |
 | [`sqliteutils`](#2-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, secure PRAGMAs, DDL migrations. |
-| [`strutils`](#3-strutils) | Case conversions (snake, kebab, camel, pascal, title), slugify, masking, padding, Levenshtein distance, word wrap. |
-| [`sliceutils`](#4-sliceutils) | Generic collection operations: unique, chunk, flatten, partition, intersection, difference, shuffle, sampling, stats. |
-| [`envutils`](#5-envutils) | Type-safe environment variable retrieval (`get_str`, `get_int`, `get_bool`), setters (`set`, `set_int`, `set_bool`), `.env` file loader, variable expansion. |
-| [`cryptoutils`](#6-cryptoutils) | SHA-256, SHA-512, MD5, HMAC-SHA256, Base64 / Base64URL encode/decode, UUID v4, secure tokens. |
-| [`timeutils`](#7-timeutils) | Human relative time ("2 hours ago", "in 3 days"), ISO 8601 formatting/parsing, calendar boundaries, `Stopwatch`. |
-| [`httputils`](#8-httputils) | Ergonomic HTTP client (`get_json[T]`, `post_json[T, R]`, `get_text`), query string builder/parser, retry with backoff. |
+| [`strutils`](#3-strutils) | Case conversions, Unicode-aware slugify/transliteration, masking, Levenshtein, Jaro-Winkler, fuzzy match & "did you mean", natural sort, Soundex, pluralize/singularize, dedent, display width. |
+| [`sliceutils`](#4-sliceutils) | O(n) hashed set ops, `fold`/`scan`/`flat_map`/`filter_map`, stable sort, binary search bounds, `group/count/index_by`, windows, transpose, combinations & permutations. |
+| [`envutils`](#5-envutils) | Type-safe getters, `.env` loader with quotes/escapes/multiline/`export`, `${VAR:-default}` expansion, `dotenv-expand`, `get_duration`, `get_enum`, `require_all`, `with_env`. |
+| [`cryptoutils`](#6-cryptoutils) | CSPRNG tokens/UUID v4/v7/NanoID, authenticated encryption (`seal`/`open`), RFC 4226/6238 HOTP/TOTP, Argon2id, PBKDF2, SHA-1/2/3, BLAKE3, HMAC, Base32, constant-time compare. |
+| [`timeutils`](#7-timeutils) | Relative time, ISO 8601, flexible `parse_any`, `parse_duration`, calendar math (`add_months`, ISO week, quarters, business days, age), boundaries, `Stopwatch`. |
+| [`httputils`](#8-httputils) | Reusable `Client` (base URL, headers, timeouts), typed JSON helpers, retry with jittered backoff + `Retry-After`/429, Link/Content-Type parsing, form encoding. |
 | [`cliutils`](#9-cliutils) | Terminal ANSI styling, FlagParser, interactive prompts, progress bar, sparkline, bar chart, gauge, tree, diff, tables. |
 | [`sysutils`](#10-sysutils) | System telemetry (CPU usage/cores, RAM, swap, disk, uptime, load averages), safe exec (`exec_safe`, `quote_arg`), paths, clipboard. |
 | [`netutils`](#11-netutils) | Network discovery (local/public IP, MAC, Wi-Fi SSID, DNS servers, gateway, listening ports), connectivity check & TCP ping. |
-| [`validutils`](#12-validutils) | High-speed validation for email, URL, IPv4/IPv6, phone numbers, alphanumeric strings, numeric ranges, UUID, JSON. |
-| [`structutils`](#13-structutils) | Generic RAD data structures: `SimpleStack[T]`, `SimpleQueue[T]`, circular `SimpleRingBuffer[T]`, and `SimpleMinHeap`. |
-| [`statutils`](#14-statutils) | Statistical analysis, regression & modeling: mean, median, mode, sample/pop variance & std dev, SEM, quartiles, IQR, skewness, kurtosis, covariance, Pearson/Spearman correlation, OLS linear regression, normal PDF/CDF, Z-scores, outlier detection, moving averages, and summary profiles. |
+| [`validutils`](#12-validutils) | Email, URL, hostname, IPv4/IPv6/CIDR, MAC, port, E.164, Luhn/credit cards, IBAN, ISBN, ULID, hex colors, password strength, and a fluent `Validator`. |
+| [`structutils`](#13-structutils) | Stack, Queue, RingBuffer, MinHeap, Set, BST, linked lists, generic `PriorityQueue[T]`, `Deque[T]`, `Trie` autocomplete, optimally-sized Bloom filter, HyperLogLog. |
+| [`statutils`](#14-statutils) | Descriptive stats, regression, correlation, outliers, plus streaming `RunningStats` (Welford), histograms, normal quantile, Student-t CDF, Welch t-test, confidence intervals. |
 | [`stateutils`](#15-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with atomic writes, auto-save, and rollback. |
-| [`cacheutils`](#16-cacheutils) | In-memory caching: fixed-capacity `LRUCache[T]` with O(1) recency eviction and entry-level `TTLCache[T]` with auto-cleanup and `get_or_set`. |
-| [`semverutils`](#17-semverutils) | Semantic Versioning 2.0.0 parsing, precedence comparison, range matching (`^`, `~`, `>=`, `<=`), and version bumping. |
-| [`flowutils`](#18-flowutils) | Traffic control & resilience: Token Bucket `RateLimiter`, 3-state `CircuitBreaker`, exponential backoff `retry[T]`, and event `Debouncer`. |
-| [`templateutils`](#19-templateutils) | Fast string templating with fallback defaults (`{{key | default}}`), dynamic resolvers, and styled ANSI markdown terminal rendering. |
-| [`colorutils`](#20-colorutils) | HEX/RGB/HSL color conversions, color theory transforms, WCAG 2.1 accessibility & contrast auditing, and 24-bit Truecolor terminal formatting. |
+| [`cacheutils`](#16-cacheutils) | True O(1) `LRUCache[T]` (index-linked slab) with `peek` and hit-ratio stats, and `TTLCache[T]` with auto-cleanup and `get_or_set`. |
+| [`semverutils`](#17-semverutils) | Strict SemVer 2.0.0 parsing, precedence, full npm range syntax (`||`, hyphen, `1.2.x`, `^1.2`, `~>`), `coerce`, `max_satisfying`, `sort_versions`, `diff`. |
+| [`flowutils`](#18-flowutils) | Monotonic-clock token bucket and sliding-window limiters (`retry_after`, `remaining`), `CircuitBreaker`, exponential backoff `retry[T]`, `Debouncer`. |
+| [`templateutils`](#19-templateutils) | `{{key | default}}` templates, HTML-safe `render_template_html`, Mustache engine (sections, loops, inverted, dotted paths, auto-escape), ANSI markdown rendering. |
+| [`colorutils`](#20-colorutils) | HEX/RGB/HSL/HSV/CMYK/Lab/OKLab/OKLCH, perceptual `mix_oklab` & gradients, ΔE, palettes, WCAG contrast with `ensure_contrast`, CSS color parsing, truecolor/ansi256. |
 | [`archiveutils`](#21-archiveutils) | Ergonomic Zip archive creation, extraction, recursive directory compression, and in-memory inspection via V's native `compress.szip`. |
-| [`asyncutils`](#22-asyncutils) | Bounded concurrency primitives: order-preserving `parallel_map[T, R]`, `parallel_filter[T]`, `parallel_each[T]`, `WaitGroup`, and `WorkerPool`. |
+| [`asyncutils`](#22-asyncutils) | Order-preserving `parallel_map`/`filter`/`each`, fallible `parallel_try_map`, `parallel_reduce`, `with_timeout`, `Semaphore`, `Once`, `WaitGroup`, `WorkerPool`. |
 | [`regexutils`](#23-regexutils) | High-level regular expression helpers: `is_match`, `find_first`, `find_all`, `replace`, `split`, and `find_matches`. |
 | [`mockutils`](#24-mockutils) | Synthetic testing & prototyping data generation: `lorem_text`, `lorem_words`, `mock_user`, `mock_email`, `mock_phone`, `mock_ipv4`, `mock_url`. |
-| [`logutils`](#25-logutils) | Leveled structured logging (`LogLevel`, `Logger`, file/stdout targets, ANSI color highlighting). |
+| [`logutils`](#25-logutils) | Leveled logging with color, logfmt & JSON structured records, automatic secret redaction, `parse_level`, size-based `rotate_file`. |
 | [`tomlutils`](#26-tomlutils) | TOML configuration file and string parsing with typed accessors (`get_string`, `get_int`, `get_bool`, `get_strings`). |
-| [`htmlutils`](#27-htmlutils) | HTML parsing, DOM navigation (`get_element_by_id`, `get_elements_by_tag`), entity escaping, and tag stripping. |
+| [`htmlutils`](#27-htmlutils) | HTML parsing & DOM queries, single-pass entity decoding (named/numeric), allowlist `sanitize_html` (XSS-safe), `html_to_text`. |
 | [`bitutils`](#28-bitutils) | Dynamic bitsets (`BitSet`), bitwise operations, popcount, binary string conversions, and bitmask flag manipulation. |
 | [`compressutils`](#29-compressutils) | Fast compression & decompression for Gzip, Zlib, Deflate, and Zstandard strings and byte buffers. |
 | [`tarutils`](#30-tarutils) | In-memory and on-disk TAR archive creation, unpacking, directory archiving, and tarball inspection. |
-| [`mathutils`](#31-mathutils) | 2D Math, spatial geometry, and number theory: `lerp`, `remap`, `clamp`, `round_to_step`, `Point2D`, `Rect` intersection, `gcd`, `lcm`, and power-of-two checks. |
-| [`cronutils`](#32-cronutils) | Standard 5-field cron parsing, next execution calculation (`next_after`), matching, and human-readable English summaries (`cron_to_human`). |
-| [`urlutils`](#33-urlutils) | RFC 3986 URL parsing (`parse_url`), component inspection, path segment joining (`join_path`), and credential redaction (`redact_credentials`). |
-| [`jwtutils`](#34-jwtutils) | Lightweight, zero-dependency HS256 JSON Web Token signing (`sign_jwt`) and verification (`verify_jwt`) with expiration checks. |
-| [`eventutils`](#35-eventutils) | In-memory publish-subscribe event dispatcher (`EventEmitter`, `on`, `once`, `off`, `emit`). |
-| [`diffutils`](#36-diffutils) | Line-level text diffing (`diff_lines`) and standard Git-style unified diff generation (`unified_diff`). |
-| [`graphutils`](#37-graphutils) | Generic Directed Acyclic Graphs (`Graph[T]`), cycle detection, Kahn's topological sort (`topological_sort`), BFS, and DFS. |
+| [`mathutils`](#31-mathutils) | Geometry (`Vec2`, polygons, convex hull, haversine), overflow-checked ints, Miller-Rabin primes, modular arithmetic, factorial/binomial, Kahan sum, approx equality. |
+| [`cronutils`](#32-cronutils) | POSIX cron (lists, `a-b/n` steps, `MON-FRI`/`JAN` names, `@daily` macros, DOM/DOW OR rule), fast `next_after`/`next_n`, `is_valid_cron`, English summaries. |
+| [`urlutils`](#33-urlutils) | URL parsing (IPv6, encoded credentials, port validation), RFC 3986 `resolve_reference` & dot-segment removal, `normalize_url`, origins, multi-value queries. |
+| [`jwtutils`](#34-jwtutils) | HS256/384/512 JWT signing & verification with `alg` pinning, issuer/audience/leeway/max-age policies, `refresh_jwt`, unverified decoding for routing. |
+| [`eventutils`](#35-eventutils) | Pub-sub `EventEmitter` with handle-based `subscribe`/`unsubscribe`, wildcard `on_any`, once-listeners, and generic `TypedEmitter[T]`. |
+| [`diffutils`](#36-diffutils) | Myers O(ND) diff, word/char diffs, git-compatible unified hunks, verified `apply_patch`, similarity ratio, ANSI rendering. |
+| [`graphutils`](#37-graphutils) | Directed `Graph[T]` (topo sort, BFS/DFS, shortest path, SCC, cycle finding) and `WeightedGraph[T]` (Dijkstra, A*, Kruskal MST, components), `UnionFind`. |
+| [`jsonutils`](#38-jsonutils) | **New.** RFC 6901 JSON Pointer get/set, RFC 7386 Merge Patch, canonical (sorted-key) encoding, deep equality, structural diff, flatten, pretty/minify. |
+| [`markdownutils`](#39-markdownutils) | **New.** Safe Markdown → HTML (GFM tables, task lists, fenced code, nested lists), heading anchors, TOC generation, plain-text previews. |
 
 ---
 
@@ -682,16 +688,44 @@ dag.add_edge('test', 'deploy')
 
 order := dag.topological_sort()!
 println(order) // ["build", "test", "deploy"]
+
+mut roads := graphutils.new_weighted_graph[string](false)
+roads.add_edge('A', 'B', 4)!
+roads.add_edge('A', 'C', 1)!
+roads.add_edge('C', 'B', 2)!
+path := roads.dijkstra('A', 'B') or { panic('unreachable') }
+println('${path.nodes} cost=${path.cost}') // ['A', 'C', 'B'] cost=3.0
+```
+
+### 38. `jsonutils`
+```v
+import jsonutils
+import json2
+
+doc := jsonutils.parse('{"users":[{"name":"Ann"}]}')!
+name := jsonutils.pointer_get(doc, '/users/0/name')!            // "Ann"
+patched := jsonutils.merge_patch_str('{"a":1,"b":2}', '{"b":null,"c":3}')! // {"a":1,"c":3}
+changes := jsonutils.diff(doc, jsonutils.pointer_set(doc, '/users/-', json2.Any('Bob'))!)
+println(changes[0].op) // add
+```
+
+### 39. `markdownutils`
+```v
+import markdownutils
+
+html := markdownutils.to_html('# Hello\n\n- [x] **safe** by default\n\n[x](javascript:alert(1))')
+// <h1 id="hello">Hello</h1> ... javascript: links are neutralized to "#"
+println(markdownutils.toc('# A\n## B', 3))
 ```
 
 ---
 
 ## Running Demos
 
-You can run individual standalone demos for any utility module or execute all 37 demos sequentially:
+You can run individual standalone demos for any utility module or execute all 39 demos sequentially:
 
 ```bash
-# Run all 37 module demos sequentially with execution timing
+# Run all 39 module demos sequentially with execution timing
 v run demos/run_all_demos.v
 
 # Or run any specific module demo directly
@@ -699,7 +733,7 @@ v run demos/demo_fileutils.v
 v run demos/demo_sqliteutils.v
 v run demos/demo_mathutils.v
 v run demos/demo_jwtutils.v
-# ... (see demos/ folder for all 37 demo scripts)
+# ... (see demos/ folder for all 39 demo scripts)
 
 # Run the complete showcase console dashboard
 v run main.v

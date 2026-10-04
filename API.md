@@ -1,6 +1,6 @@
 # V Developer Utility Suite (`vlang_utils`) - Complete API Reference
 
-Welcome to the comprehensive API reference manual for the **37 production-grade developer utility modules** in `vlang_utils`.
+Welcome to the comprehensive API reference manual for the **39 production-grade developer utility modules** in `vlang_utils`.
 
 Every module is zero-dependency, self-contained, and designed for Rapid Application Development (RAD). You can import any module directly across GUI apps, CLI tools, services, and background workers (e.g. `import strutils`, `import sqliteutils`, `import cacheutils`).
 
@@ -23,9 +23,9 @@ Examples that contact a website, read a file, use the clipboard, or ask a questi
 
 ### 🚀 Ready-to-Run Demos
 
-All 37 utility modules have standalone, fully functional demo scripts located in the [`demos/`](demos/) directory.
+All 39 utility modules have standalone, fully functional demo scripts located in the [`demos/`](demos/) directory.
 
-- **Run all 37 demos sequentially with execution timing:**
+- **Run all 39 demos sequentially with execution timing:**
   ```bash
   v run demos/run_all_demos.v
   ```
