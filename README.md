@@ -2,7 +2,7 @@
 
 A comprehensive suite of ergonomic, production-grade V utility modules designed for rapid application development (RAD). Never write common boilerplate from scratch again.
 
-> **v2.0** — every module hardened (security fixes, real bug fixes, standards compliance) and extended with hundreds of new, tested utilities, plus three new modules (`jsonutils`, `markdownutils`, `webutils`). Fully backward compatible. See [CHANGELOG.md](CHANGELOG.md).
+> **v2.1** — 45 modules: added 5 new RAD powerhouses (`configutils`, `idutils`, `procutils`, `sqlbuilder`, `testutils`), ergonomic enhancements across `sqliteutils`, `stateutils`, `cliutils`, `jsonutils`, `webutils`, `httputils`, and full V 0.5.2 support. See [CHANGELOG.md](CHANGELOG.md).
 
 **Engineering principles:** standards first (RFCs and specs are cited in code and verified with their published test vectors), secure by default (CSPRNG, constant-time comparisons, escaping, `alg` pinning), predictable complexity (documented and tested), and zero third-party dependencies.
 
@@ -14,7 +14,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`asyncutils`](#2-asyncutils) | Order-preserving `parallel_map`/`filter`/`each`, fallible `parallel_try_map`, `parallel_reduce`, `with_timeout`, `Semaphore`, `Once`, `WaitGroup`, `WorkerPool`. |
 | [`bitutils`](#3-bitutils) | Dynamic bitsets (`BitSet`), bitwise operations, popcount, binary string conversions, and bitmask flag manipulation. |
 | [`cacheutils`](#4-cacheutils) | True O(1) `LRUCache[T]` (index-linked slab) with `peek` and hit-ratio stats, and `TTLCache[T]` with auto-cleanup and `get_or_set`. |
-| [`cliutils`](#5-cliutils) | Terminal ANSI styling, FlagParser, interactive prompts, progress bar, sparkline, bar chart, gauge, tree, diff, tables. |
+| [`cliutils`](#5-cliutils) | Terminal ANSI styling, FlagParser, interactive prompts, multiselect, progress bar, sparkline, bar chart, gauge, tree, diff, tables. |
 | [`colorutils`](#6-colorutils) | HEX/RGB/HSL/HSV/CMYK/Lab/OKLab/OKLCH, perceptual `mix_oklab` & gradients, ΔE, palettes, WCAG contrast with `ensure_contrast`, CSS color parsing, truecolor/ansi256. |
 | [`compressutils`](#7-compressutils) | Fast compression & decompression for Gzip, Zlib, Deflate, and Zstandard strings and byte buffers. |
 | [`cronutils`](#8-cronutils) | POSIX cron (lists, `a-b/n` steps, `MON-FRI`/`JAN` names, `@daily` macros, DOM/DOW OR rule), fast `next_after`/`next_n`, `is_valid_cron`, English summaries. |
@@ -26,30 +26,35 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`flowutils`](#14-flowutils) | Monotonic-clock token bucket and sliding-window limiters (`retry_after`, `remaining`), `CircuitBreaker`, exponential backoff `retry[T]`, `Debouncer`. |
 | [`graphutils`](#15-graphutils) | Directed `Graph[T]` (topo sort, BFS/DFS, shortest path, SCC, cycle finding) and `WeightedGraph[T]` (Dijkstra, A*, Kruskal MST, components), `UnionFind`. |
 | [`htmlutils`](#16-htmlutils) | HTML parsing & DOM queries, single-pass entity decoding (named/numeric), allowlist `sanitize_html` (XSS-safe), `html_to_text`. |
-| [`httputils`](#17-httputils) | Reusable `Client` (base URL, headers, timeouts), typed JSON helpers, retry with jittered backoff + `Retry-After`/429, Link/Content-Type parsing, form encoding. |
-| [`jsonutils`](#18-jsonutils) | **New.** RFC 6901 JSON Pointer get/set, RFC 7386 Merge Patch, canonical (sorted-key) encoding, deep equality, structural diff, flatten, pretty/minify. |
+| [`httputils`](#17-httputils) | Reusable `Client` (base URL, headers, timeouts), streaming lines/SSE, multipart uploads, typed JSON helpers, retry with jittered backoff. |
+| [`jsonutils`](#18-jsonutils) | RFC 6901 JSON Pointer get/set, RFC 7386 Merge Patch, NDJSON stream parsing/encoding, canonical encoding, deep equality, structural diff, flatten. |
 | [`jwtutils`](#19-jwtutils) | HS256/384/512 JWT signing & verification with `alg` pinning, issuer/audience/leeway/max-age policies, `refresh_jwt`, unverified decoding for routing. |
 | [`logutils`](#20-logutils) | Leveled logging with color, logfmt & JSON structured records, automatic secret redaction, `parse_level`, size-based `rotate_file`. |
-| [`markdownutils`](#21-markdownutils) | **New.** Safe Markdown → HTML (GFM tables, task lists, fenced code, nested lists), heading anchors, TOC generation, plain-text previews. |
+| [`markdownutils`](#21-markdownutils) | Safe Markdown → HTML (GFM tables, task lists, fenced code, nested lists), heading anchors, TOC generation, plain-text previews. |
 | [`mathutils`](#22-mathutils) | Geometry (`Vec2`, polygons, convex hull, haversine), overflow-checked ints, Miller-Rabin primes, modular arithmetic, factorial/binomial, Kahan sum, approx equality. |
 | [`mockutils`](#23-mockutils) | Synthetic testing & prototyping data generation: `lorem_text`, `lorem_words`, `mock_user`, `mock_email`, `mock_phone`, `mock_ipv4`, `mock_url`. |
 | [`netutils`](#24-netutils) | Network discovery (local/public IP, MAC, Wi-Fi SSID, DNS servers, gateway, listening ports), connectivity check & TCP ping. |
 | [`regexutils`](#25-regexutils) | High-level regular expression helpers: `is_match`, `find_first`, `find_all`, `replace`, `split`, and `find_matches`. |
-| [`semverutils`](#26-semverutils) | Strict SemVer 2.0.0 parsing, precedence, full npm range syntax (` |
+| [`semverutils`](#26-semverutils) | Strict SemVer 2.0.0 parsing, precedence, full npm range syntax (`^`, `~`, `~>`, `<`, `<=`, `>`, `>=`), sorting, and bumping. |
 | [`sliceutils`](#27-sliceutils) | O(n) hashed set ops, `fold`/`scan`/`flat_map`/`filter_map`, stable sort, binary search bounds, `group/count/index_by`, windows, transpose, combinations & permutations. |
-| [`sqliteutils`](#28-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, secure PRAGMAs, DDL migrations. |
-| [`stateutils`](#29-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with JSON and SQLite database backends, atomic writes, auto-save, and rollback. |
+| [`sqliteutils`](#28-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, pagination (`select_rows_paged`), secure PRAGMAs, DDL migrations. |
+| [`stateutils`](#29-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`, `StateHistory[T]` undo/redo) in OS-recommended paths with JSON and SQLite backends. |
 | [`statutils`](#30-statutils) | Descriptive stats, regression, correlation, outliers, plus streaming `RunningStats` (Welford), histograms, normal quantile, Student-t CDF, Welch t-test, confidence intervals. |
 | [`structutils`](#31-structutils) | Stack, Queue, RingBuffer, MinHeap, Set, BST, linked lists, generic `PriorityQueue[T]`, `Deque[T]`, `Trie` autocomplete, optimally-sized Bloom filter, HyperLogLog. |
 | [`strutils`](#32-strutils) | Case conversions, Unicode-aware slugify/transliteration, masking, Levenshtein, Jaro-Winkler, fuzzy match & "did you mean", natural sort, Soundex, pluralize/singularize, dedent, display width. |
 | [`sysutils`](#33-sysutils) | System telemetry (CPU usage/cores, RAM, swap, disk, uptime, load averages), safe exec (`exec_safe`, `quote_arg`), paths, clipboard. |
 | [`tarutils`](#34-tarutils) | In-memory and on-disk TAR archive creation, unpacking, directory archiving, and tarball inspection. |
-| [`templateutils`](#35-templateutils) | `{{key |
+| [`templateutils`](#35-templateutils) | `{{key}}` mustache replacement, conditional sections (`{{#if}}`), inverted sections (`{{^if}}`), loop sections (`{{#each}}`), filters, and HTML escaping. |
 | [`timeutils`](#36-timeutils) | Relative time, ISO 8601, flexible `parse_any`, `parse_duration`, calendar math (`add_months`, ISO week, quarters, business days, age), boundaries, `Stopwatch`. |
 | [`tomlutils`](#37-tomlutils) | TOML configuration file and string parsing with typed accessors (`get_string`, `get_int`, `get_bool`, `get_strings`). |
 | [`urlutils`](#38-urlutils) | URL parsing (IPv6, encoded credentials, port validation), RFC 3986 `resolve_reference` & dot-segment removal, `normalize_url`, origins, multi-value queries. |
 | [`validutils`](#39-validutils) | Email, URL, hostname, IPv4/IPv6/CIDR, MAC, port, E.164, Luhn/credit cards, IBAN, ISBN, ULID, hex colors, password strength, and a fluent `Validator`. |
-| [`webutils`](#40-webutils) | **New.** Express-style web framework with a secure EJS-style template engine and batteries included (sessions, CSRF, CORS, rate limiting, security headers, static files, multipart, gzip, signed cookies, in-process testing). Zero third-party deps. |
+| [`webutils`](#40-webutils) | Express-style web framework with a secure EJS-style template engine, Server-Sent Events (`sse()`), health checks (`use_healthz()`), sessions, CSRF, CORS, static files. |
+| [`configutils`](#41-configutils) | **New.** Layered configuration management (defaults -> TOML/JSON file -> ENV -> CLI flags) with provenance tracking and type conversions. |
+| [`idutils`](#42-idutils) | **New.** Modern unique identifiers: ULID (monotonic 128-bit sortable), Snowflake (64-bit distributed int), and Sqids integer obfuscation. |
+| [`procutils`](#43-procutils) | **New.** Robust subprocess management with real-time stdout/stderr line streaming, timeout deadlines, and shell pipelines. |
+| [`sqlbuilder`](#44-sqlbuilder) | **New.** Fluent, composable SQL query builder for SELECT, INSERT, UPDATE, DELETE with automatic pagination and safe escaping. |
+| [`testutils`](#45-testutils) | **New.** Ergonomic test harness: isolated temp directories (`with_temp_dir`), temp files, scoped ENV overrides (`with_env`), and assertions. |
 
 ---
 
@@ -823,23 +828,138 @@ fn main() {
 > [!TIP]
 > V 0.5.2 compiler caveat: inside handler closures, return errors with `return webutils.http_error(status, msg)` or `return error(msg)`. Returning a custom `IError` value from a closure (for example `return webutils.new_http_error(...)`) makes the compiler run out of memory.
 
+### 41. `configutils`
+```v
+import configutils
+
+// Layered configuration: Defaults -> TOML/JSON file -> ENV -> CLI flags
+mut cfg := configutils.new_manager('MYAPP')
+cfg.set_default('port', '8080')
+cfg.set_default('debug', 'false')
+
+// Load optional config file if it exists
+cfg.load_file('config.toml') or {}
+
+// Automatically overrides keys with MYAPP_PORT, MYAPP_DEBUG, etc.
+cfg.load_env()
+
+// Override with parsed CLI flags
+cfg.load_cli_args(['--port', '9000', '--debug'])!
+
+// Type-safe accessors with provenance tracking
+port := cfg.get_int('port')! // 9000
+debug := cfg.get_bool('debug')! // true
+source := cfg.source_of('port') // "cli"
+```
+
+### 42. `idutils`
+```v
+import idutils
+
+// 1. ULID - 128-bit sortable identifier with millisecond timestamp
+id := idutils.ulid() // e.g. "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+ts := idutils.ulid_timestamp(id) // Unix millisecond epoch
+
+// Monotonic generator for high-throughput batch creation
+mut gen := idutils.new_monotonic_ulid_generator()
+id1 := gen.generate()
+id2 := gen.generate()
+
+// 2. Snowflake - 64-bit distributed ID (worker/datacenter/sequence)
+mut sf := idutils.new_snowflake(1, 1)!
+snow_id := sf.next_id()!
+
+// 3. Sqids - URL-friendly integer obfuscation / YouTube-style IDs
+sq := idutils.new_sqids(min_length: 8)!
+code := sq.encode([42, 1337])! // e.g. "b7xK9nQ2"
+numbers := sq.decode(code) // [42, 1337]
+```
+
+### 43. `procutils`
+```v
+import procutils
+
+// 1. Real-time stdout/stderr line streaming
+procutils.stream_lines('git status', fn (line string, is_stderr bool) {
+	if is_stderr {
+		eprintln('[err] ${line}')
+	} else {
+		println('[out] ${line}')
+	}
+})!
+
+// 2. Command execution with strict timeout deadline
+res := procutils.exec_timeout('sleep 10', timeout_ms: 1000)
+if res.timed_out {
+	println('Process killed after 1000ms deadline!')
+}
+
+// 3. Safe pipeline execution
+out := procutils.pipeline(['cat access.log', 'grep 404', 'wc -l'])!
+println('Total 404s: ${out.trim_space()}')
+```
+
+### 44. `sqlbuilder`
+```v
+import sqlbuilder
+
+// Composable, parameterized-safe SQL builder
+query, params := sqlbuilder.select_from('users')
+	.columns(['id', 'username', 'email', 'status'])
+	.where_eq('status', 'active')
+	.where_gte('age', 18)
+	.order_by('created_at', .desc)
+	.paginate(page: 1, page_size: 20)
+	.to_sql()
+
+println('SQL: ${query}')
+// Output: SELECT id, username, email, status FROM users WHERE status = ? AND age >= ? ORDER BY created_at DESC LIMIT 20 OFFSET 0
+
+// Bulk Insert with escaping
+ins_query, _ := sqlbuilder.insert_into('audit_logs')
+	.row({'event': 'login', 'user_id': '42'})
+	.to_sql()
+```
+
+### 45. `testutils`
+```v
+import testutils
+
+// 1. Isolated temporary directory (auto-cleaned on exit)
+testutils.with_temp_dir(fn (dir string) ! {
+	testutils.write_temp_file(dir, 'test.txt', 'hello')!
+	content := testutils.read_temp_file(dir, 'test.txt')!
+	testutils.assert_eq(content, 'hello', 'content matches')
+})!
+
+// 2. Scoped environment variable override (restores previous value)
+testutils.with_env({'API_KEY': 'mock-secret-123'}, fn () ! {
+	key := os.getenv('API_KEY')
+	testutils.assert_eq(key, 'mock-secret-123', 'scoped env works')
+})!
+
+// 3. Floating point assertions with delta
+testutils.assert_in_delta(3.14159, 3.14, 0.01, 'approximate pi')
+```
+
 ---
 
 ## Running Demos
 
-You can run individual standalone demos for any utility module or execute all 40 demos sequentially:
+You can run individual standalone demos for any utility module or execute all 45 demos sequentially:
 
 ```bash
-# Run all 40 module demos sequentially with execution timing
+# Run all 45 module demos sequentially with execution timing
 v run demos/run_all_demos.v
 
 # Or run any specific module demo directly
 v run demos/demo_archiveutils.v
-v run demos/demo_fileutils.v
-v run demos/demo_jwtutils.v
-v run demos/demo_mathutils.v
-v run demos/demo_sqliteutils.v
-# ... (see demos/ folder for all 40 demo scripts)
+v run demos/demo_configutils.v
+v run demos/demo_idutils.v
+v run demos/demo_procutils.v
+v run demos/demo_sqlbuilder.v
+v run demos/demo_testutils.v
+# ... (see demos/ folder for all 45 demo scripts)
 
 # Run the complete showcase console dashboard
 v run main.v
