@@ -38,7 +38,7 @@ A comprehensive suite of ergonomic, production-grade V utility modules designed 
 | [`semverutils`](#26-semverutils) | Strict SemVer 2.0.0 parsing, precedence, full npm range syntax (` |
 | [`sliceutils`](#27-sliceutils) | O(n) hashed set ops, `fold`/`scan`/`flat_map`/`filter_map`, stable sort, binary search bounds, `group/count/index_by`, windows, transpose, combinations & permutations. |
 | [`sqliteutils`](#28-sqliteutils) | Ergonomic SQLite persistence, KV store, JSON document store, SQL injection defense, parameterized CRUD, secure PRAGMAs, DDL migrations. |
-| [`stateutils`](#29-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with atomic writes, auto-save, and rollback. |
+| [`stateutils`](#29-stateutils) | Managed app state persistence (`AppStateStore[T]`, `KeyValueState`) in OS-recommended paths with JSON and SQLite database backends, atomic writes, auto-save, and rollback. |
 | [`statutils`](#30-statutils) | Descriptive stats, regression, correlation, outliers, plus streaming `RunningStats` (Welford), histograms, normal quantile, Student-t CDF, Welch t-test, confidence intervals. |
 | [`structutils`](#31-structutils) | Stack, Queue, RingBuffer, MinHeap, Set, BST, linked lists, generic `PriorityQueue[T]`, `Deque[T]`, `Trie` autocomplete, optimally-sized Bloom filter, HyperLogLog. |
 | [`strutils`](#32-strutils) | Case conversions, Unicode-aware slugify/transliteration, masking, Levenshtein, Jaro-Winkler, fuzzy match & "did you mean", natural sort, Soundex, pluralize/singularize, dedent, display width. |
@@ -542,11 +542,23 @@ store.update(fn (mut cfg AppConfig) {
 })!
 store.save()!
 
-// Dynamic Key-Value state
+// SQLite Database Option: store state in a SQLite database file
+mut sqlite_store := stateutils.new_sqlite_app_state[AppConfig]('my_app', AppConfig{
+    theme: 'nord'
+    window_width: 1440
+})
+sqlite_store.save()!
+
+// Dynamic Key-Value state (JSON or SQLite)
 mut kv := stateutils.new_kv_state('my_app')
 kv.auto_save = true
 kv.set_str('user', 'alex')!
 kv.set_int('launches', 5)!
+
+// SQLite Key-Value state
+mut sqlite_kv := stateutils.new_sqlite_kv_state('my_app')
+sqlite_kv.auto_save = true
+sqlite_kv.set_str('db_mode', 'wal')!
 ```
 
 ### 30. `statutils`

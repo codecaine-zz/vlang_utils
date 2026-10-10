@@ -4640,11 +4640,51 @@ if stateutils.app_state_exists('my_app', 'prefs.json') {
 }
 ```
 
+#### SQLite Direct Functions
+
+Save and load application structs directly to and from SQLite database files:
+
+- `save_app_state_sqlite[T](app_name string, filename string, state T) !`
+- `load_app_state_sqlite[T](app_name string, filename string) !T`
+- `load_app_state_sqlite_or[T](app_name string, filename string, default_val T) T`
+- `app_state_sqlite_exists(app_name string, filename string) bool`
+- `delete_app_state_sqlite(app_name string, filename string) !`
+- `save_app_state_with_backend[T](app_name string, filename string, state T, backend StateBackend) !`
+- `load_app_state_with_backend[T](app_name string, filename string, backend StateBackend) !T`
+- `load_app_state_with_backend_or[T](app_name string, filename string, default_val T, backend StateBackend) T`
+
+```v
+import stateutils
+
+struct UserPrefs {
+    theme string
+    sound bool
+}
+
+// Persist struct to SQLite database (state.db)
+stateutils.save_app_state_sqlite('my_app', 'prefs.db', UserPrefs{ theme: 'dark', sound: true })!
+
+// Load struct from SQLite database
+prefs := stateutils.load_app_state_sqlite[UserPrefs]('my_app', 'prefs.db')!
+println('Loaded SQLite theme: ${prefs.theme}')
+
+// Unified backend switching
+stateutils.save_app_state_with_backend('my_app', 'prefs.db', prefs, .sqlite)!
+```
+
 ---
 
 ### `AppStateStore[T]` - Managed Generic Store
 
-Manages in-memory state, atomic disk persistence, auto-saving, backups, and rollback. Created via `new_app_state` (default `state.json` in `.data`) or `new_app_state_with_file` for custom state filenames or `.config` locations.
+Manages in-memory state, disk/database persistence, auto-saving, backups, and rollback. Backed by either **JSON** or **SQLite database**.
+
+- `new_app_state[T](app_name string, default_data T) AppStateStore[T]` (JSON default)
+- `new_app_state_with_file[T](app_name string, filename string, default_data T, loc StateLocation) AppStateStore[T]`
+- `new_app_state_with_backend[T](app_name string, default_data T, backend StateBackend) AppStateStore[T]`
+- `new_app_state_with_config[T](app_name string, default_data T, cfg StateStoreConfig) AppStateStore[T]`
+- `new_sqlite_app_state[T](app_name string, default_data T) AppStateStore[T]` (SQLite database)
+- `new_sqlite_app_state_with_file[T](app_name string, filename string, default_data T, loc StateLocation) AppStateStore[T]`
+- `new_sqlite_app_state_with_table[T](app_name string, filename string, table_name string, default_data T, loc StateLocation) AppStateStore[T]`
 
 ```v
 import stateutils
@@ -4664,9 +4704,18 @@ mut store := stateutils.new_app_state[Settings]('my_app', Settings{
     theme:    'dark'
 })
 
-// Or custom filename & directory location:
-mut custom_store := stateutils.new_app_state_with_file[Settings]('my_app', 'workspace.json', Settings{}, .config)
-println('Custom store theme: ${custom_store.get().theme}')
+// SQLite-backed state store (state.db in OS data dir)
+mut sqlite_store := stateutils.new_sqlite_app_state[Settings]('my_app', Settings{
+    window_w: 1920
+    window_h: 1080
+    theme:    'nord'
+})
+sqlite_store.save()!
+
+// Custom SQLite filename and table:
+mut custom_sqlite := stateutils.new_sqlite_app_state_with_table[Settings](
+    'my_app', 'workspace.db', 'window_settings', Settings{}, .data
+)
 
 // Access current state
 println('Window width: ${store.get().window_w}')
@@ -4679,7 +4728,7 @@ store.update(fn (mut s Settings) {
 })!
 store.save()! // persists atomically
 
-// Backup & Rollback
+// Backup & Rollback (supports both JSON and SQLite)
 bak_file := store.backup()! // saves ${path}.bak
 println('Backup saved: ${bak_file}')
 store.set(Settings{ window_w: 800, window_h: 600, theme: 'light' })!
@@ -4689,46 +4738,59 @@ store.rollback()! // reverts from .bak
 store.auto_save = true
 store.update(fn (mut s Settings) {
     s.theme = 'solarized'
-})! // automatically saved to disk
+})! // automatically saved to disk/db
 ```
 
 ---
 
 ### `KeyValueState` - Dynamic App State
 
-For apps that need schema-free configuration and preferences. Created via `new_kv_state` or `new_kv_state_with_file`.
+For apps that need schema-free configuration and preferences. Supports both **JSON** and **SQLite database** backends.
+
+- `new_kv_state(app_name string) KeyValueState` (JSON default)
+- `new_kv_state_with_file(app_name string, filename string, loc StateLocation) KeyValueState`
+- `new_kv_state_with_backend(app_name string, backend StateBackend) KeyValueState`
+- `new_kv_state_with_config(app_name string, cfg StateStoreConfig) KeyValueState`
+- `new_sqlite_kv_state(app_name string) KeyValueState` (SQLite database)
+- `new_sqlite_kv_state_with_file(app_name string, filename string, loc StateLocation) KeyValueState`
+- `new_sqlite_kv_state_with_table(app_name string, filename string, table_name string, loc StateLocation) KeyValueState`
 
 ```v
 import stateutils
 
+// JSON-backed key-value store
 mut kv := stateutils.new_kv_state('my_app')
 kv.auto_save = true
 
-// Or custom file/location:
-mut custom_kv := stateutils.new_kv_state_with_file('my_app', 'tokens.json', .config)
-println('Custom KV keys: ${custom_kv.keys()}')
+// SQLite-backed key-value store
+mut sqlite_kv := stateutils.new_sqlite_kv_state('my_app')
+sqlite_kv.auto_save = true
 
-// Typed setters & getters with fallbacks
-kv.set_str('current_profile', 'guest')!
-kv.set_int('volume', 85)!
-kv.set_bool('notifications', true)!
-kv.set_f64('scale', 1.5)!
+// Typed setters & getters with fallbacks (works identically on JSON and SQLite)
+sqlite_kv.set_str('current_profile', 'guest')!
+sqlite_kv.set_int('volume', 85)!
+sqlite_kv.set_bool('notifications', true)!
+sqlite_kv.set_f64('scale', 1.5)!
 
-profile := kv.get_str('current_profile', 'default')
-volume  := kv.get_int('volume', 100)
-notify  := kv.get_bool('notifications', false)
-scale   := kv.get_f64('scale', 1.0)
+profile := sqlite_kv.get_str('current_profile', 'default')
+volume  := sqlite_kv.get_int('volume', 100)
+notify  := sqlite_kv.get_bool('notifications', false)
+scale   := sqlite_kv.get_f64('scale', 1.0)
 println('${profile}, vol=${volume}, notify=${notify}, scale=${scale}')
 
 // Management
-println('Has volume: ${kv.has("volume")}')
-kv.delete('scale')!
-keys := kv.keys()
-all_data := kv.all()
+println('Has volume: ${sqlite_kv.has("volume")}')
+sqlite_kv.delete('scale')!
+keys := sqlite_kv.keys()
+all_data := sqlite_kv.all()
 println('All data: ${all_data}')
 
-kv.clear()!
-kv.reset()! // clears memory and deletes state file from disk
+// Backup and rollback
+bak := sqlite_kv.backup()!
+sqlite_kv.rollback()!
+
+sqlite_kv.clear()!
+sqlite_kv.reset()! // clears memory and deletes state database from disk
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
