@@ -7,7 +7,9 @@ fn main() {
 
 	// 1. Real-time Subprocess Streaming
 	println('1. Streaming command output line-by-line:')
-	res := procutils.exec_stream('echo', ['Step 1: Init\nStep 2: Compile\nStep 3: Done'], fn (line string, is_stderr bool) {
+	res := procutils.exec_stream('echo', [
+		'Step 1: Init\nStep 2: Compile\nStep 3: Done',
+	], fn (line string, is_stderr bool) {
 		prefix := if is_stderr { '[STDERR]' } else { '[STDOUT]' }
 		println('   ${prefix} ${line}')
 	}) or { panic(err) }
@@ -23,7 +25,9 @@ fn main() {
 
 	// 3. Execution with Timeout
 	println('\n3. Execution with Timeout Guard:')
-	t_res := procutils.exec_with_timeout('echo', ['Completed within safety limit'], 1000) or { panic(err) }
+	t_res := procutils.exec_with_timeout('echo', ['Completed within safety limit'], 1000) or {
+		panic(err)
+	}
 	println('   Output: ${t_res.stdout.trim_space()}')
 
 	println('\n=== demo_procutils completed successfully ===')

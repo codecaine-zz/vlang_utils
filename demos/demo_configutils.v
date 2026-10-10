@@ -13,7 +13,9 @@ port = 8000
 host = "127.0.0.1"
 database_url = "sqlite://app.db"
 workers = 4
-') or { panic(err) }
+') or {
+		panic(err)
+	}
 	defer { os.rm(sample_conf) or {} }
 
 	// 2. Set an environment variable (simulating Docker / systemd)

@@ -98,8 +98,14 @@ struct LogEntry {
 
 fn test_ndjson() {
 	entries := [
-		LogEntry{ level: 'info', msg: 'start' },
-		LogEntry{ level: 'warn', msg: 'slow' },
+		LogEntry{
+			level: 'info'
+			msg:   'start'
+		},
+		LogEntry{
+			level: 'warn'
+			msg:   'slow'
+		},
 	]
 	encoded := encode_ndjson[LogEntry](entries) or { panic(err) }
 	assert encoded.contains('{"level":"info","msg":"start"}\n')

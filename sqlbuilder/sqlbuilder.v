@@ -201,6 +201,7 @@ pub fn (b SelectBuilder) order_by(column string, direction OrderDirection) Selec
 		.asc { 'ASC' }
 		.desc { 'DESC' }
 	}
+
 	order_bys << '${column} ${dir_str}'
 	return SelectBuilder{
 		...b

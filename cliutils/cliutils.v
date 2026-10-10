@@ -145,7 +145,11 @@ pub fn prompt_multiselect(message string, options []string, defaults []int) []st
 		marker := if i in defaults { '[x]' } else { '[ ]' }
 		println('  ${marker} ${i + 1}. ${opt}')
 	}
-	hint := if defaults.len > 0 { ' [default: ${defaults.map((it + 1).str()).join(',')}]' } else { '' }
+	hint := if defaults.len > 0 {
+		' [default: ${defaults.map((it + 1).str()).join(',')}]'
+	} else {
+		''
+	}
 	print('Select numbers separated by comma or space (e.g. 1,3)${hint}: ')
 	os.flush()
 	input := os.get_line().trim_space()

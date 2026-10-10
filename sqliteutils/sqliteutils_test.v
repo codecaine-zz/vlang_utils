@@ -840,7 +840,9 @@ fn test_select_rows_paged() {
 	assert paged.items.len == 10
 	assert paged.items[0]['name'] == 'User 1'
 
-	paged_last := select_rows_paged(mut db, 'users', ['*'], '', [], 3, 10, 'id ASC') or { panic(err) }
+	paged_last := select_rows_paged(mut db, 'users', ['*'], '', [], 3, 10, 'id ASC') or {
+		panic(err)
+	}
 	assert paged_last.page == 3
 	assert paged_last.has_prev == true
 	assert paged_last.has_next == false

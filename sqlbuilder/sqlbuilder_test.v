@@ -62,7 +62,7 @@ fn test_sql_injection_defense() {
 	assert escaped == "'admin'' OR ''1''=''1'"
 
 	// Null byte stripping
-	with_null := "user\x00name"
+	with_null := 'user\x00name'
 	assert escape_string(with_null) == "'username'"
 
 	// Inline query with question mark in string literal
@@ -72,4 +72,3 @@ fn test_sql_injection_defense() {
 		.to_sql()
 	assert inlined == "SELECT id FROM questions WHERE title = 'What?' AND author = 'O''Connor'"
 }
-

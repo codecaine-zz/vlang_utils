@@ -34,7 +34,7 @@ pub fn quote_arg(arg string) string {
 	if arg.len == 0 {
 		return "''"
 	}
-	return "'" + arg.replace("'", "'\"'\"'") + "'"
+	return "'" + arg.replace("'", '\'"\'"\'') + "'"
 }
 
 // cmd creates a ProcessCommand with program and arguments

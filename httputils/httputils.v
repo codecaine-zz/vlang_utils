@@ -257,7 +257,9 @@ pub fn post_multipart(url string, fields map[string]string, files map[string]str
 	body.write_string('--${boundary}--\r\n')
 
 	mut req := http.new_request(.post, url, body.str())
-	req.add_custom_header('Content-Type', 'multipart/form-data; boundary=${boundary}') or { return err }
+	req.add_custom_header('Content-Type', 'multipart/form-data; boundary=${boundary}') or {
+		return err
+	}
 	for k, v in headers {
 		req.add_custom_header(k, v) or { return err }
 	}
