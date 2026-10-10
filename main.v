@@ -65,8 +65,14 @@ fn main() {
 	defer { os.rmdir_all(demo_dir) or {} }
 
 	people := [
-		Person{ name: 'Alice', age: 30 },
-		Person{ name: 'Bob', age: 25 },
+		Person{
+			name: 'Alice'
+			age:  30
+		},
+		Person{
+			name: 'Bob'
+			age:  25
+		},
 	]
 	people_path := '${demo_dir}/people.json'
 	fileutils.save_struct_array_to_file(people_path, people) or { panic(err) }
@@ -84,7 +90,8 @@ fn main() {
 	println(' - Human file size: ${fileutils.file_size_human(csv_path) or { '' }}')
 
 	// 2. SQLITEUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('2. [sqliteutils] SQLite Ergonomics & KV/Doc Store:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('2. [sqliteutils] SQLite Ergonomics & KV/Doc Store:')))
 	sqlite_dir := '.sqliteutils_demo'
 	if os.exists(sqlite_dir) {
 		os.rmdir_all(sqlite_dir) or {}
@@ -103,11 +110,15 @@ fn main() {
 
 	sqliteutils.create_json_store(mut db, 'users_store') or { panic(err) }
 	sqliteutils.save_struct(mut db, 'users_store', 'user_alice', people[0]) or { panic(err) }
-	loaded_alice := sqliteutils.load_struct[Person](mut db, 'users_store', 'user_alice') or { panic(err) }
+	loaded_alice := sqliteutils.load_struct[Person](mut db, 'users_store', 'user_alice') or {
+		panic(err)
+	}
 	println(' - Document loaded from SQLite store: ${loaded_alice.name} (${loaded_alice.age})')
 
 	// Parameterized CRUD & Injection Defense
-	sqliteutils.exec_sql(mut db, 'CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT);') or { panic(err) }
+	sqliteutils.exec_sql(mut db, 'CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT);') or {
+		panic(err)
+	}
 	acct_id := sqliteutils.insert_row(mut db, 'accounts', {
 		'name': "Alice' OR 1=1; --"
 	}) or { panic(err) }
@@ -124,9 +135,11 @@ fn main() {
 	println(' - Kebab Case: ${strutils.to_kebab_case(raw_text)}')
 	println(' - Camel Case: ${strutils.to_camel_case(raw_text)}')
 	println(' - Pascal Case: ${strutils.to_pascal_case(raw_text)}')
-	println(' - Truncate words: ${strutils.truncate_words('The quick brown fox jumps over the lazy dog', 4, '...')}')
+	println(' - Truncate words: ${strutils.truncate_words('The quick brown fox jumps over the lazy dog',
+		4, '...')}')
 	println(' - Mask email: ${strutils.mask_email('developer.antigravity@google.com')}')
-	println(' - Levenshtein distance (kitten -> sitting): ${strutils.levenshtein_distance('kitten', 'sitting')}')
+	println(' - Levenshtein distance (kitten -> sitting): ${strutils.levenshtein_distance('kitten',
+		'sitting')}')
 	println(' - Random token (16): ${strutils.random_alphanumeric(16)}')
 
 	// 4. SLICEUTILS DEMO
@@ -163,7 +176,8 @@ fn main() {
 	println(' - Base64 Encoded: ${cryptoutils.base64_encode('Antigravity IDE')}')
 
 	// 7. TIMEUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('7. [timeutils] Relative Time, Formatting & Stopwatch:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('7. [timeutils] Relative Time, Formatting & Stopwatch:')))
 	mut sw := timeutils.new_stopwatch()
 	time.sleep(15 * time.millisecond)
 	sw.stop()
@@ -184,7 +198,8 @@ fn main() {
 	println(' - Parsed Query Map: ${parsed_qs}')
 
 	// 9. CLIUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('9. [cliutils] Terminal RAD, Visualization & Formatting:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('9. [cliutils] Terminal RAD, Visualization & Formatting:')))
 	println(' - Sparkline: ' + cliutils.sparkline([1.0, 3.0, 5.0, 8.0, 4.0, 2.0, 9.0, 7.0, 10.0]))
 	println(' - Gauge: ' + cliutils.gauge('RAM', 7.2, 10.0, 'GB'))
 	println(' - Bar Chart:\n' + cliutils.bar_chart('Resource Usage', {
@@ -195,13 +210,21 @@ fn main() {
 	tree := cliutils.TreeNode{
 		label:    'Project Root'
 		children: [
-			cliutils.TreeNode{ label: 'src/main.v' },
+			cliutils.TreeNode{
+				label: 'src/main.v'
+			},
 			cliutils.TreeNode{
 				label:    'modules'
 				children: [
-					cliutils.TreeNode{ label: 'sysutils' },
-					cliutils.TreeNode{ label: 'netutils' },
-					cliutils.TreeNode{ label: 'cliutils' },
+					cliutils.TreeNode{
+						label: 'sysutils'
+					},
+					cliutils.TreeNode{
+						label: 'netutils'
+					},
+					cliutils.TreeNode{
+						label: 'cliutils'
+					},
 				]
 			},
 		]
@@ -209,7 +232,8 @@ fn main() {
 	println(' - Tree View:\n' + cliutils.render_tree(tree))
 
 	// 10. SYSUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('10. [sysutils] System Telemetry & Process Execution:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('10. [sysutils] System Telemetry & Process Execution:')))
 	cores := sysutils.get_cpu_count()
 	total_ram, used_ram, ram_pct := sysutils.get_memory_stats()
 	total_disk, used_disk, disk_pct := sysutils.get_disk_stats('/')
@@ -266,7 +290,8 @@ fn main() {
 	println(' - MinHeap Root: ${heap.pop() or { -1.0 }}')
 
 	// 14. STATUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('14. [statutils] Comprehensive Statistical Analysis & Regression:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('14. [statutils] Comprehensive Statistical Analysis & Regression:')))
 	dataset := [12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 30.0, 45.0, 45.0, 50.0]
 	summary := statutils.stats_summary(dataset)
 	println(' - Dataset: ${dataset}')
@@ -275,7 +300,9 @@ fn main() {
 	// Bivariate Analysis
 	x_vals := [1.0, 2.0, 3.0, 4.0, 5.0]
 	y_vals := [2.1, 3.9, 6.2, 8.0, 9.9]
-	lr := statutils.stats_linear_regression(x_vals, y_vals) or { statutils.LinearRegressionResult{} }
+	lr := statutils.stats_linear_regression(x_vals, y_vals) or {
+		statutils.LinearRegressionResult{}
+	}
 	println(' - OLS Regression (x->y): slope=${lr.slope:.2f}, intercept=${lr.intercept:.2f}, R²=${lr.r_squared:.4f}')
 
 	// Moving Average & Outliers
@@ -283,7 +310,8 @@ fn main() {
 	println(' - 3-Point Moving Average: ${ma}')
 
 	// 15. STATEUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('15. [stateutils] OS-Recommended App State Saving:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('15. [stateutils] OS-Recommended App State Saving:')))
 	app_name := 'vlang_utils_demo_app'
 	defer {
 		os.rmdir_all(stateutils.get_app_dir(app_name, .data)) or {}
@@ -315,7 +343,8 @@ fn main() {
 	kv.auto_save = true
 	kv.set_str('user_locale', 'en-US') or {}
 	kv.set_int('launch_count', 15) or {}
-	println(' - Dynamic KV State: user_locale=${kv.get_str('user_locale', '')}, launches=${kv.get_int('launch_count', 0)}')
+	println(' - Dynamic KV State: user_locale=${kv.get_str('user_locale', '')}, launches=${kv.get_int('launch_count',
+		0)}')
 
 	// 16. CACHEUTILS DEMO
 	println('\n' + cliutils.bold(cliutils.yellow('16. [cacheutils] LRU & TTL Caching:')))
@@ -323,7 +352,9 @@ fn main() {
 	lru.set('session:1', 'Alice')
 	lru.set('session:2', 'Bob')
 	lru.set('session:3', 'Charlie') // evicts session:1
-	println(' - LRU Capacity 2, accessed: ${lru.get('session:1') or { 'none (evicted)' }}, ${lru.get('session:3') or { '' }}')
+	println(' - LRU Capacity 2, accessed: ${lru.get('session:1') or { 'none (evicted)' }}, ${lru.get('session:3') or {
+		''
+	}}')
 
 	mut ttl := cacheutils.new_ttl[string](500 * time.millisecond)
 	ttl.set('token:1', 'secret_jwt')
@@ -342,8 +373,10 @@ fn main() {
 	println(' - Satisfies "^1.2.0": ${range_match}')
 
 	// 18. FLOWUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('18. [flowutils] Rate Limiting, Circuit Breaker & Retry:')))
-	mut limiter := flowutils.new_rate_limiter(10, 5.0) or { panic(err) } // 10 tokens capacity, 5 tokens/sec
+	println('\n' +
+		cliutils.bold(cliutils.yellow('18. [flowutils] Rate Limiting, Circuit Breaker & Retry:')))
+	mut limiter :=
+		flowutils.new_rate_limiter(10, 5.0) or { panic(err) } // 10 tokens capacity, 5 tokens/sec
 	println(' - Rate Limiter allow 2 tokens: ${limiter.allow_n(2)}')
 
 	mut cb := flowutils.new_circuit_breaker(3, 1 * time.second) or { panic(err) }
@@ -355,17 +388,20 @@ fn main() {
 	println(' - Exponential Backoff Retry: ${retry_result}')
 
 	// 19. TEMPLATEUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('19. [templateutils] Template & ANSI Markdown Rendering:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('19. [templateutils] Template & ANSI Markdown Rendering:')))
 	rendered := templateutils.render_template('Hello {{name}}! Welcome to {{site | vlang.io}}', {
 		'name': 'Developer'
 	})
 	println(' - Template: "${rendered}"')
 
-	md_preview := templateutils.render_markdown_ansi('# Welcome\nUse `vlang_utils` for **fast** development.')
+	md_preview :=
+		templateutils.render_markdown_ansi('# Welcome\nUse `vlang_utils` for **fast** development.')
 	println(' - ANSI Markdown rendering:\n${md_preview}')
 
 	// 20. COLORUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('20. [colorutils] Color Conversion, WCAG & Truecolor Terminal:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('20. [colorutils] Color Conversion, WCAG & Truecolor Terminal:')))
 	c_hex := colorutils.hex_to_rgb('#007acc') or { colorutils.RGB{} }
 	hsl := colorutils.rgb_to_hsl(c_hex)
 	println(' - Hex #007acc -> RGB(${c_hex.r}, ${c_hex.g}, ${c_hex.b}) -> HSL(${hsl.h:.0f}°, ${hsl.s * 100:.0f}%, ${hsl.l * 100:.0f}%)')
@@ -375,11 +411,13 @@ fn main() {
 	accessible := colorutils.is_accessible(c_hex, white, 'AA')
 	println(' - Contrast vs White: ${contrast:.2f}:1 (WCAG AA Normal: ${accessible})')
 
-	styled_terminal := colorutils.bg_rgb(colorutils.fg_rgb('  V-LANG UTILS COMPLETE  ', white), c_hex)
+	styled_terminal := colorutils.bg_rgb(colorutils.fg_rgb('  V-LANG UTILS COMPLETE  ', white),
+		c_hex)
 	println(' - Truecolor Styled Output:\n${styled_terminal}')
 
 	// 21. ARCHIVEUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('21. [archiveutils] Zip Archiving & In-Memory Inspection:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('21. [archiveutils] Zip Archiving & In-Memory Inspection:')))
 	arch_demo_dir := '.archive_demo'
 	os.mkdir_all(arch_demo_dir) or { panic(err) }
 	defer { os.rmdir_all(arch_demo_dir) or {} }
@@ -393,7 +431,8 @@ fn main() {
 	println(' - In-memory read from ZIP: "${extracted_text}"')
 
 	// 22. ASYNCUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('22. [asyncutils] Bounded Parallelism & Worker Pools:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('22. [asyncutils] Bounded Parallelism & Worker Pools:')))
 	nums := [1, 2, 3, 4, 5, 6, 7, 8]
 	mapped := asyncutils.parallel_map[int, int](nums, 4, fn (n int) int {
 		return n * 10
@@ -424,7 +463,8 @@ fn main() {
 	println(' - Replaced: "${masked_nums}"')
 
 	// 24. MOCKUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('24. [mockutils] Synthetic Data & Lorem Generation:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('24. [mockutils] Synthetic Data & Lorem Generation:')))
 	fake_user := mockutils.mock_user()
 	println(' - Mock Profile: ${fake_user.name} (${fake_user.role}) <${fake_user.email}>')
 	println(' - Mock Network: Phone=${fake_user.phone}, IP=${fake_user.ip}')
@@ -432,7 +472,8 @@ fn main() {
 	println(' - Synthetic Lorem: "${lorem_sample}"')
 
 	// 25. LOGUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('25. [logutils] Structured Logging & Multi-Target Dispatch:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('25. [logutils] Structured Logging & Multi-Target Dispatch:')))
 	log_demo := logutils.new_logger(
 		level:          .info
 		output:         .console
@@ -452,10 +493,12 @@ fn main() {
 	enabled = true
 	'
 	toml_doc := tomlutils.parse(sample_toml) or { panic(err) }
-	println(' - TOML Config: title="${toml_doc.get_string('title', '')}", host=${toml_doc.get_string('server.host', '')}, port=${toml_doc.get_int('server.port', 0)}')
+	println(' - TOML Config: title="${toml_doc.get_string('title', '')}", host=${toml_doc.get_string('server.host',
+		'')}, port=${toml_doc.get_int('server.port', 0)}')
 
 	// 27. HTMLUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('27. [htmlutils] HTML Parsing, Queries & Sanitization:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('27. [htmlutils] HTML Parsing, Queries & Sanitization:')))
 	sample_html := '<div id="container" class="card primary"><h1>Welcome to Vlang</h1><p>High-level utilities</p></div>'
 	mut html_doc := htmlutils.parse(sample_html)
 	container_node := html_doc.get_element_by_id('container') or { panic('missing container') }
@@ -463,74 +506,112 @@ fn main() {
 	println(' - Stripped HTML: "${htmlutils.strip_tags(sample_html)}"')
 
 	// 28. BITUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('28. [bitutils] BitSet & Bitwise Flag Operations:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('28. [bitutils] BitSet & Bitwise Flag Operations:')))
 	mut bs := bitutils.new_bitset(8)
 	bs.set(0)
 	bs.set(3)
 	bs.set(7)
 	println(' - BitSet: ${bs.str()}, count_set=${bs.count_set()}, bit 3=${bs.get(3)}')
 	flag_rw := bitutils.set_flag(u64(1), u64(2))
-	println(' - Popcount(42): ${bitutils.popcount(42)}, Binary: "${bitutils.to_binary(42, 8)}", Has flag: ${bitutils.has_flag(flag_rw, 1)}')
+	println(' - Popcount(42): ${bitutils.popcount(42)}, Binary: "${bitutils.to_binary(42, 8)}", Has flag: ${bitutils.has_flag(flag_rw,
+		1)}')
 
 	// 29. COMPRESSUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('29. [compressutils] Multi-Algorithm Compression (Gzip, Zlib, Deflate, Zstd):')))
-	sample_payload := 'V is a statically typed compiled programming language designed for building maintainable software. ' + 'It provides fast compilation, high performance, safety, and a clean minimalist syntax.'
+	println('\n' +
+		cliutils.bold(cliutils.yellow('29. [compressutils] Multi-Algorithm Compression (Gzip, Zlib, Deflate, Zstd):')))
+	sample_payload :=
+		'V is a statically typed compiled programming language designed for building maintainable software. ' +
+		'It provides fast compilation, high performance, safety, and a clean minimalist syntax.'
 	gz_c := compressutils.gzip_compress_string(sample_payload) or { panic(err) }
 	zs_c := compressutils.zstd_compress_string(sample_payload) or { panic(err) }
-	println(' - Original: ${sample_payload.len} B | Gzip: ${gz_c.len} B (${compressutils.compression_ratio(sample_payload.len, gz_c.len):.1f}% saved) | Zstd: ${zs_c.len} B (${compressutils.compression_ratio(sample_payload.len, zs_c.len):.1f}% saved)')
+	println(' - Original: ${sample_payload.len} B | Gzip: ${gz_c.len} B (${compressutils.compression_ratio(sample_payload.len,
+		gz_c.len):.1f}% saved) | Zstd: ${zs_c.len} B (${compressutils.compression_ratio(sample_payload.len,
+		zs_c.len):.1f}% saved)')
 
 	// 30. TARUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('30. [tarutils] POSIX ustar TAR Archive Packing & Unpacking:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('30. [tarutils] POSIX ustar TAR Archive Packing & Unpacking:')))
 	tar_entries := [
-		tarutils.TarEntry{ name: 'manifest.txt', size: 19, is_dir: false, data: 'vlang_utils bundle'.bytes() },
-		tarutils.TarEntry{ name: 'docs', size: 0, is_dir: true, data: []u8{} },
+		tarutils.TarEntry{
+			name:   'manifest.txt'
+			size:   19
+			is_dir: false
+			data:   'vlang_utils bundle'.bytes()
+		},
+		tarutils.TarEntry{
+			name:   'docs'
+			size:   0
+			is_dir: true
+			data:   []u8{}
+		},
 	]
 	packed_tar := tarutils.pack_bytes(tar_entries)
 	unpacked_tar := tarutils.unpack_bytes(packed_tar) or { panic(err) }
 	println(' - Packed TAR: ${packed_tar.len} B, Unpacked: ${unpacked_tar.len} entries (first="${unpacked_tar[0].name}", text="${unpacked_tar[0].data.bytestr()}")')
 
 	// 31. MATHUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('31. [mathutils] 2D Math, Geometry & Number Theory:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('31. [mathutils] 2D Math, Geometry & Number Theory:')))
 	m_val := mathutils.remap(50.0, 0.0, 100.0, 0.0, 1.0)
-	p_a := mathutils.Point2D[f64]{ x: 0.0, y: 0.0 }
-	p_b := mathutils.Point2D[f64]{ x: 3.0, y: 4.0 }
-	println(' - Remap(50): ${m_val}, Distance: ${mathutils.distance(p_a, p_b):.1f}, GCD(84, 18): ${mathutils.gcd(84, 18)}')
+	p_a := mathutils.Point2D[f64]{
+		x: 0.0
+		y: 0.0
+	}
+	p_b := mathutils.Point2D[f64]{
+		x: 3.0
+		y: 4.0
+	}
+	println(' - Remap(50): ${m_val}, Distance: ${mathutils.distance(p_a, p_b):.1f}, GCD(84, 18): ${mathutils.gcd(84,
+		18)}')
 
 	// 32. CRONUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('32. [cronutils] Cron Expression Parsing & Human Summaries:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('32. [cronutils] Cron Expression Parsing & Human Summaries:')))
 	cron_human := cronutils.cron_to_human('0 0 * * *')
 	println(' - Human summary of "0 0 * * *": "${cron_human}"')
 
 	// 33. URLUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('33. [urlutils] RFC 3986 URL Parsing & Credential Redaction:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('33. [urlutils] RFC 3986 URL Parsing & Credential Redaction:')))
 	demo_url := 'https://user:secret123@api.hub.com:8443/v1/data?page=2#top'
 	redacted_u := urlutils.redact_credentials(demo_url)
 	println(' - Redacted: "${redacted_u}"')
 
 	// 34. JWTUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('34. [jwtutils] HS256 Zero-Dependency JSON Web Tokens:')))
-	token_str := jwtutils.sign_simple_token('developer_alice', 'app_secret_key', 3600) or { panic(err) }
+	println('\n' +
+		cliutils.bold(cliutils.yellow('34. [jwtutils] HS256 Zero-Dependency JSON Web Tokens:')))
+	token_str := jwtutils.sign_simple_token('developer_alice', 'app_secret_key', 3600) or {
+		panic(err)
+	}
 	verified_jwt := jwtutils.verify_jwt(token_str, 'app_secret_key') or { panic(err) }
 	println(' - Verified JWT subject: "${verified_jwt.sub}"')
 
 	// 35. EVENTUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('35. [eventutils] In-Memory Publish-Subscribe Event Dispatcher:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('35. [eventutils] In-Memory Publish-Subscribe Event Dispatcher:')))
 	mut em := eventutils.new_emitter()
-	em.once('greet', fn (msg string) { println(' - [Event Triggered]: Hello, ${msg}!') })
+	em.once('greet', fn (msg string) {
+		println(' - [Event Triggered]: Hello, ${msg}!')
+	})
 	em.emit('greet', 'World')
 
 	// 36. DIFFUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('36. [diffutils] Unified Diff Generation & Programmatic Diffs:')))
-	u_diff := diffutils.unified_diff('version = 1.0\nenabled = false', 'version = 2.0\nenabled = true', 'config.ini')
+	println('\n' +
+		cliutils.bold(cliutils.yellow('36. [diffutils] Unified Diff Generation & Programmatic Diffs:')))
+	u_diff := diffutils.unified_diff('version = 1.0\nenabled = false',
+		'version = 2.0\nenabled = true', 'config.ini')
 	println(' - Unified diff output lines: ${u_diff.split_into_lines().len}')
 
 	// 37. GRAPHUTILS DEMO
-	println('\n' + cliutils.bold(cliutils.yellow('37. [graphutils] Directed Acyclic Graphs (DAG) & Topological Sort:')))
+	println('\n' +
+		cliutils.bold(cliutils.yellow('37. [graphutils] Directed Acyclic Graphs (DAG) & Topological Sort:')))
 	mut dag := graphutils.new_graph[string]()
 	dag.add_edge('build', 'test')
 	dag.add_edge('test', 'deploy')
 	sorted_order := dag.topological_sort() or { panic(err) }
 	println(' - Dependency Order: ${sorted_order}')
 
-	println('\n' + cliutils.bold(cliutils.green('✔ All 37 modules in vlang_utils demonstrated successfully!')))
+	println('\n' +
+		cliutils.bold(cliutils.green('✔ All 37 modules in vlang_utils demonstrated successfully!')))
 }
