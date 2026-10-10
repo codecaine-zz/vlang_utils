@@ -1399,6 +1399,31 @@ badge := colorutils.bg_rgb(colorutils.fg_rgb(' SUCCESS ', white), colorutils.RGB
 println(badge)
 ```
 
+---
+
+### 5. High Dynamic Range (HDR / EDR) Colors
+
+#### `new_hdr_color(r f64, g f64, b f64, a f64) HDRColor`
+
+Represents colors in extended dynamic range (EDR) on HDR-capable displays (such as modern Apple Liquid Retina XDR screens), where red/green/blue channels can exceed standard 1.0 peak white luminance.
+
+```v
+import colorutils
+
+// Create standard HDR color with extended headroom
+hdr := colorutils.new_hdr_color(1.5, 0.8, 0.2, 1.0)
+println('Is HDR:       ${hdr.is_hdr()}')      // true
+println('Luminance:    ${hdr.luminance():.2f}') // extended luminance
+
+// Clamp back to standard SDR sRGB [0..255] for standard monitors
+sdr_rgb := hdr.clamp_to_sdr()
+println('SDR Fallback: R=${sdr_rgb.r}, G=${sdr_rgb.g}, B=${sdr_rgb.b}')
+
+// Boost standard SDR color by +1.5 stops of exposure
+boosted := colorutils.hdr_color_from_exposure(colorutils.RGB{255, 200, 50}, 1.5)
+println('Boosted Headroom: ${boosted.headroom:.2f}x')
+```
+
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
