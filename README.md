@@ -539,26 +539,36 @@ mut store := stateutils.new_app_state[AppConfig]('my_app', AppConfig{
 // Modify and save with atomic write (zero corruption risk)
 store.update(fn (mut cfg AppConfig) {
     cfg.window_width = 1920
+    cfg.recent_files << '/docs/readme.md'
 })!
 store.save()!
+
+// Root-level array state (e.g., search history or list of tasks)
+mut history := stateutils.new_app_state[[]string]('my_app', ['first_cmd'])
+history.data << 'second_cmd'
+history.save()!
 
 // SQLite Database Option: store state in a SQLite database file
 mut sqlite_store := stateutils.new_sqlite_app_state[AppConfig]('my_app', AppConfig{
     theme: 'nord'
     window_width: 1440
+    recent_files: ['/docs/app.db']
 })
 sqlite_store.save()!
 
-// Dynamic Key-Value state (JSON or SQLite)
+// Dynamic Key-Value state (JSON or SQLite) with strings, ints, bools, and arrays
 mut kv := stateutils.new_kv_state('my_app')
 kv.auto_save = true
 kv.set_str('user', 'alex')!
 kv.set_int('launches', 5)!
+kv.set_strings('pinned_tabs', ['dashboard', 'analytics'])!
+tabs := kv.get_strings('pinned_tabs', [])
 
 // SQLite Key-Value state
 mut sqlite_kv := stateutils.new_sqlite_kv_state('my_app')
 sqlite_kv.auto_save = true
 sqlite_kv.set_str('db_mode', 'wal')!
+sqlite_kv.set_strings('active_plugins', ['git', 'linter'])!
 ```
 
 ### 30. `statutils`
