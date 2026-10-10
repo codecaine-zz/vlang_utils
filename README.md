@@ -569,6 +569,23 @@ mut sqlite_kv := stateutils.new_sqlite_kv_state('my_app')
 sqlite_kv.auto_save = true
 sqlite_kv.set_str('db_mode', 'wal')!
 sqlite_kv.set_strings('active_plugins', ['git', 'linter'])!
+
+// Struct Evolution (adding new fields to an existing app state without data loss):
+// Newly added fields with default values are automatically populated when loading older state,
+// and an `extra map[string]string` allows open-ended dynamic extension at runtime:
+struct AppConfigV2 {
+pub mut:
+    theme        string            = 'dark'
+    window_width int               = 1280
+    // Newly added fields:
+    zoom_level   f64               = 1.0
+    tags         []string          = []
+    extra        map[string]string = map[string]string{}
+}
+mut v2_store := stateutils.new_app_state[AppConfigV2]('my_app', AppConfigV2{})
+v2_store.update(fn (mut cfg AppConfigV2) {
+    cfg.extra['custom_key'] = 'custom_value'
+})!
 ```
 
 ### 30. `statutils`
