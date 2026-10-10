@@ -4,6 +4,9 @@ Welcome to the comprehensive API reference manual for the **40 production-grade 
 
 Every module is zero-dependency, self-contained, and designed for Rapid Application Development (RAD). You can import any module directly across GUI apps, CLI tools, services, and background workers (e.g. `import strutils`, `import sqliteutils`, `import cacheutils`).
 
+> [!NOTE]
+> **V Compiler Compatibility**: All 40 modules in `vlang_utils` are verified and tested against **V 0.5.2** (`9e9f7f05`). This includes full support for `json2` streaming serialization, generics, and native SQLite bindings. For compiler maintenance, `v up` troubleshooting, and `VFLAGS` setup, refer to [`README.md`](README.md#5-v-compiler-version--v-up-maintenance).
+
 ---
 
 ## Start Here: How To Read Any Example
@@ -468,7 +471,7 @@ pool.wait_all()
 
 # bitutils API
 
-**Plain-language purpose:** Use these tools when you need compact on/off flags or binary values. The examples use a small set of switches, then show how to turn one on, off, or combine several permissions.
+**Plain-language purpose:** Use `bitutils` when you need to store and manipulate on/off flags (such as user permissions or settings), pack millions of booleans into minimal memory, or perform fast low-level binary calculations.
 
 Import statement:
 
@@ -476,53 +479,187 @@ Import statement:
 import bitutils
 ```
 
-### `BitSet` & Bitwise Arithmetic
+### Core Concepts
 
-Compact boolean bit manipulation, Hamming weight (popcount), and flag bitmasks.
+- **BitSet**: A dynamically-sized array of bits where each bit is either `0` (off/false) or `1` (on/true). Storing 1,000 booleans in a standard array takes 1,000 bytes; a `BitSet` stores them in only 125 bytes.
+- **Bitmask Flags**: An integer where each individual bit represents a specific permission or option (e.g. read=1, write=2, execute=4). Multiple flags are combined with bitwise OR (`|`).
 
-- `new_bitset(size int) BitSet`
-- `from_binary_string(s string) !BitSet`
-- `set(index int)`, `clear(index int)`, `toggle(index int)`, `get(index int) bool`
-- `size() int`, `count_set() int`, `str() string`
-- `and_op(other BitSet) BitSet`, `or_op(other BitSet) BitSet`, `xor_op(other BitSet) BitSet`, `not_op() BitSet`
-- `popcount(n u64) int`
-- `to_binary(n u64, min_bits int) string`
-- `from_binary(s string) !u64`
-- `has_flag(flags u64, flag u64) bool`, `set_flag(flags u64, flag u64) u64`, `clear_flag(flags u64, flag u64) u64`, `toggle_flag(flags u64, flag u64) u64`
+---
+
+### Dynamic BitSet Operations
+
+#### `new_bitset(size int) BitSet`
+
+Creates a new `BitSet` with `size` individual bits initialized to `0`.
+
+```v
+import bitutils
+
+mut bs := bitutils.new_bitset(64) // 64 bits available (indices 0 to 63)
+println('Bitset size: ${bs.size()}') // 64
+println('All clear: ${bs.none_set()}') // true
+```
+
+#### `set(index int)`, `clear(index int)`, `toggle(index int)`, `get(index int) bool`
+
+Modifies and inspects individual bit values by their 0-based index.
 
 ```v
 import bitutils
 
 mut bs := bitutils.new_bitset(16)
-bs.set(0)
-bs.set(5)
-bs.toggle(5)
-is_set := bs.get(0) // true
-count := bs.count_set() // 1
-println('is_set: ${is_set}, count: ${count}')
 
-mut b1 := bitutils.from_binary_string('1100') or { panic(err) }
-mut b2 := bitutils.from_binary_string('1010') or { panic(err) }
+bs.set(0)    // Turn on bit at index 0
+bs.set(5)    // Turn on bit at index 5
+println('Bit 5 is set: ${bs.get(5)}') // true
+println('Bit 2 is set: ${bs.get(2)}') // false
 
-and_res := b1.and_op(b2)
-or_res := b1.or_op(b2)
-xor_res := b1.xor_op(b2)
-not_res := b1.not_op()
-println('and: ${and_res}, or: ${or_res}, xor: ${xor_res}, not: ${not_res}')
+bs.toggle(2) // Flip bit 2 from 0 to 1
+println('Bit 2 after toggle: ${bs.get(2)}') // true
 
-ones := bitutils.popcount(0b1011001) // 4
-bin_str := bitutils.to_binary(42, 8)  // "00101010"
-num := bitutils.from_binary('00101010') or { 0 } // 42
-println('ones: ${ones}, bin: ${bin_str}, num: ${num}')
+bs.clear(5)  // Turn off bit 5
+println('Bit 5 after clear: ${bs.get(5)}') // false
+```
 
-flag_read := u64(1)
-flag_write := u64(2)
-mut perms := bitutils.set_flag(0, flag_read)
-perms = bitutils.set_flag(perms, flag_write)
-can_read := bitutils.has_flag(perms, flag_read) // true
-println('can_read: ${can_read}')
-perms = bitutils.clear_flag(perms, flag_read)
-perms = bitutils.toggle_flag(perms, flag_write)
+#### `count_set() int`, `count_clear() int`, `all_set() bool`, `any() bool`
+
+Queries the population of bits currently turned on or off.
+
+```v
+import bitutils
+
+mut bs := bitutils.new_bitset(8)
+bs.set(1)
+bs.set(3)
+bs.set(7)
+
+println('Count set (1s): ${bs.count_set()}')     // 3
+println('Count clear (0s): ${bs.count_clear()}') // 5
+println('Any bits set: ${bs.any()}')             // true
+println('All bits set: ${bs.all_set()}')         // false
+```
+
+#### `set_all()`, `clear_all()`, `set_range(start int, end int)`
+
+Bulk updates across the entire bitset or a range of indices.
+
+```v
+import bitutils
+
+mut bs := bitutils.new_bitset(16)
+
+// Set bits from index 2 up to (exclusive) index 6 -> sets 2, 3, 4, 5
+bs.set_range(2, 6)
+println('Indices set: ${bs.set_indices()}') // [2, 3, 4, 5]
+
+bs.clear_all()
+println('Count after clear_all: ${bs.count_set()}') // 0
+
+bs.set_all()
+println('Count after set_all: ${bs.count_set()}')   // 16
+```
+
+#### `and_op(other BitSet)`, `or_op(other BitSet)`, `xor_op(other BitSet)`, `not_op()`
+
+Performs boolean logic operations between two bitsets of equal size.
+
+```v
+import bitutils
+
+mut a := bitutils.new_bitset(4)
+a.set(0)
+a.set(1) // 0011
+
+mut b := bitutils.new_bitset(4)
+b.set(1)
+b.set(2) // 0110
+
+and_res := a.and_op(b) // Only index 1 is set in both
+println('AND indices: ${and_res.set_indices()}') // [1]
+
+or_res := a.or_op(b)   // Indices 0, 1, 2 are set in either
+println('OR indices: ${or_res.set_indices()}')   // [0, 1, 2]
+```
+
+---
+
+### Bitmask Flag Manipulation
+
+#### `has_flag(flags u64, flag u64) bool` & `set_flag`, `clear_flag`, `toggle_flag`
+
+Conveniently manage permission masks and feature toggle integers without writing manual bitwise shifts.
+
+```v
+import bitutils
+
+const perm_read    = u64(1 << 0) // 1 (0001)
+const perm_write   = u64(1 << 1) // 2 (0010)
+const perm_execute = u64(1 << 2) // 4 (0100)
+
+mut user_perms := u64(0)
+
+// Grant read and write permissions
+user_perms = bitutils.set_flag(user_perms, perm_read)
+user_perms = bitutils.set_flag(user_perms, perm_write)
+
+println('Can read: ${bitutils.has_flag(user_perms, perm_read)}')       // true
+println('Can write: ${bitutils.has_flag(user_perms, perm_write)}')     // true
+println('Can execute: ${bitutils.has_flag(user_perms, perm_execute)}') // false
+
+// Revoke write permission
+user_perms = bitutils.clear_flag(user_perms, perm_write)
+println('Can write after revoke: ${bitutils.has_flag(user_perms, perm_write)}') // false
+```
+
+---
+
+### Low-Level Binary & Integer Utilities
+
+#### `popcount(n u64) int` & `to_binary(n u64, min_bits int) string`
+
+Counts set bits (Hamming weight) and formats numbers as binary text.
+
+```v
+import bitutils
+
+// Count how many bits are 1
+println(bitutils.popcount(7)) // 3 (binary 111 has three 1s)
+println(bitutils.popcount(16)) // 1 (binary 10000 has one 1)
+
+// Convert integer to binary string with minimum width padding
+println(bitutils.to_binary(5, 8)) // "00000101"
+println(bitutils.to_binary(255, 8)) // "11111111"
+
+// Parse binary string back to integer
+num := bitutils.from_binary('1010')!
+println('Parsed from binary: ${num}') // 10
+```
+
+#### `is_power_of_two(n u64) bool`, `next_power_of_two(n u64) u64`
+
+Fast power-of-two validation and buffer sizing.
+
+```v
+import bitutils
+
+println(bitutils.is_power_of_two(16)) // true
+println(bitutils.is_power_of_two(18)) // false
+
+// Find next power of two (great for buffer allocations)
+println(bitutils.next_power_of_two(17)) // 32
+println(bitutils.next_power_of_two(60)) // 64
+```
+
+#### `hamming_distance(a u64, b u64) int`
+
+Measures the number of bit positions in which two integers differ (error detection / perceptual hashing).
+
+```v
+import bitutils
+
+// 0b1010 vs 0b1001 differ at bits 0 and 1 -> distance = 2
+dist := bitutils.hamming_distance(0b1010, 0b1001)
+println('Hamming distance: ${dist}') // 2
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -1270,7 +1407,7 @@ println(badge)
 
 # compressutils API
 
-**Plain-language purpose:** Use these tools to make data smaller for storage or transfer and restore it later without losing information. The examples compress the same text with several common formats and then decompress it again.
+**Plain-language purpose:** Use `compressutils` to shrink data (strings, bytes, files) for network transmission or disk storage, and decompress it back to its original state using standard algorithms (Gzip, Zlib, Deflate, and Zstandard).
 
 Import statement:
 
@@ -1278,64 +1415,127 @@ Import statement:
 import compressutils
 ```
 
-### Multi-Codec Compression (Gzip, Zlib, Deflate, Zstandard)
+### Supported Compression Formats
 
-Byte slice and string compression and decompression across all major standard compression codecs.
+- **Gzip**: Standard format used for HTTP web traffic, `.tar.gz` archives, and general file compression.
+- **Zlib / Deflate**: Lightweight RFC 1950/1951 stream compression commonly used in PNG images and network protocols.
+- **Zstandard (Zstd)**: High-performance modern algorithm created by Meta offering extreme compression ratios and fast decompression.
 
-- `gzip_compress(data []u8) ![]u8`, `gzip_decompress(data []u8) ![]u8`
-- `gzip_compress_string(text string) ![]u8`, `gzip_decompress_string(data []u8) !string`
-- `zlib_compress(data []u8) ![]u8`, `zlib_decompress(data []u8) ![]u8`
-- `zlib_compress_string(text string) ![]u8`, `zlib_decompress_string(data []u8) !string`
-- `deflate_compress(data []u8) ![]u8`, `deflate_decompress(data []u8) ![]u8`
-- `deflate_compress_string(text string) ![]u8`, `deflate_decompress_string(data []u8) !string`
-- `zstd_compress(data []u8) ![]u8`, `zstd_decompress(data []u8) ![]u8`
-- `zstd_compress_string(text string) ![]u8`, `zstd_decompress_string(data []u8) !string`
-- `zstd_version() string`
-- `compress(algo CompressionAlgorithm, data []u8) ![]u8`
-- `decompress(algo CompressionAlgorithm, data []u8) ![]u8`
-- `compression_ratio(original_len int, compressed_len int) f64`
+---
+
+### String Compression & Decompression
+
+#### `gzip_compress_string(text string) ![]u8` & `gzip_decompress_string(data []u8) !string`
+
+Compresses human-readable text into a Gzip byte array, and restores it.
 
 ```v
 import compressutils
 
-payload := 'Vlang utilities unified compression and decompression across formats.'
+payload := 'V is an open-source, statically-typed, fast, safe compiled language designed for building maintainable software.'
 
-// Gzip
-gz_bytes := compressutils.gzip_compress_string(payload) or { panic(err) }
-gz_raw := compressutils.gzip_compress(payload.bytes()) or { panic(err) }
-gz_dec_bytes := compressutils.gzip_decompress(gz_raw) or { panic(err) }
-gz_text := compressutils.gzip_decompress_string(gz_bytes) or { panic(err) }
+// Compress to Gzip bytes
+compressed := compressutils.gzip_compress_string(payload)!
+println('Original size: ${payload.len} bytes, Compressed: ${compressed.len} bytes')
 
-// Zlib
-zl_bytes := compressutils.zlib_compress_string(payload) or { panic(err) }
-zl_raw := compressutils.zlib_compress(payload.bytes()) or { panic(err) }
-zl_dec_bytes := compressutils.zlib_decompress(zl_raw) or { panic(err) }
-zl_text := compressutils.zlib_decompress_string(zl_bytes) or { panic(err) }
+// Calculate space savings
+ratio := compressutils.compression_ratio(payload.len, compressed.len)
+println('Space reduction: ${ratio:.1f}%')
 
-// Deflate
-df_bytes := compressutils.deflate_compress_string(payload) or { panic(err) }
-df_raw := compressutils.deflate_compress(payload.bytes()) or { panic(err) }
-df_dec_bytes := compressutils.deflate_decompress(df_raw) or { panic(err) }
-df_text := compressutils.deflate_decompress_string(df_bytes) or { panic(err) }
+// Decompress back to string
+restored := compressutils.gzip_decompress_string(compressed)!
+println('Restored matches original: ${restored == payload}') // true
+```
 
-// Zstandard
-zstd_v := compressutils.zstd_version()
-zs_bytes := compressutils.zstd_compress_string(payload) or { panic(err) }
-zs_raw := compressutils.zstd_compress(payload.bytes()) or { panic(err) }
-zs_dec_bytes := compressutils.zstd_decompress(zs_raw) or { panic(err) }
-zs_text := compressutils.zstd_decompress_string(zs_bytes) or { panic(err) }
+#### `zstd_compress_string(text string) ![]u8` & `zstd_decompress_string(data []u8) !string`
 
-// Unified dispatcher & ratio
-uni_c := compressutils.compress(.zstd, payload.bytes()) or { panic(err) }
-uni_d := compressutils.decompress(.zstd, uni_c) or { panic(err) }
-ratio := compressutils.compression_ratio(payload.len, uni_c.len)
-println('Zstandard version: ${zstd_v}, ratio: ${ratio:.1f}%')
+High-speed compression using the modern Zstandard engine.
 
-println('Gzip: dec_len=${gz_dec_bytes.len}, text=${gz_text}')
-println('Zlib: dec_len=${zl_dec_bytes.len}, text=${zl_text}')
-println('Deflate: dec_len=${df_dec_bytes.len}, text=${df_text}')
-println('Zstd: dec_len=${zs_dec_bytes.len}, text=${zs_text}')
-println('Uni decompress len: ${uni_d.len}')
+```v
+import compressutils
+
+raw_json := '{"event":"click","user_id":12345,"timestamp":"2026-10-10T12:00:00Z","metadata":{"ip":"127.0.0.1"}}'
+
+// Compress using Zstd
+compressed := compressutils.zstd_compress_string(raw_json)!
+println('Zstd compressed size: ${compressed.len} bytes')
+
+// Decompress using Zstd
+decompressed := compressutils.zstd_decompress_string(compressed)!
+println('Restored JSON: ${decompressed}')
+```
+
+#### `zlib_compress_string` & `deflate_compress_string`
+
+```v
+import compressutils
+
+text := 'Short repeating string: ABCABCABCABCABC'
+
+// Zlib (with header & Adler32 checksum)
+zlib_bytes := compressutils.zlib_compress_string(text)!
+restored_zlib := compressutils.zlib_decompress_string(zlib_bytes)!
+
+// Raw Deflate (headerless)
+deflate_bytes := compressutils.deflate_compress_string(text)!
+restored_deflate := compressutils.deflate_decompress_string(deflate_bytes)!
+
+println('Zlib restored: ${restored_zlib}')
+println('Deflate restored: ${restored_deflate}')
+```
+
+---
+
+### Format Auto-Detection & General Buffers
+
+#### `detect_algorithm(data []u8) ?CompressionAlgorithm` & `decompress_auto(data []u8) ![]u8`
+
+Inspects magic bytes at the beginning of an unknown compressed buffer and automatically unpacks it without guessing.
+
+```v
+import compressutils
+
+data := 'Important document contents'.bytes()
+compressed := compressutils.gzip_compress(data)!
+
+// Detect algorithm from magic header bytes
+if algo := compressutils.detect_algorithm(compressed) {
+    println('Detected algorithm: ${algo}') // CompressionAlgorithm.gzip
+}
+
+// Automatically unpack regardless of whether it is Gzip, Zlib, or Zstd
+unpacked := compressutils.decompress_auto(compressed)!
+println('Auto-decompressed text: ${unpacked.bytestr()}')
+```
+
+---
+
+### File Compression Helpers
+
+#### `compress_file(algo CompressionAlgorithm, src string, dst string) !` & `decompress_file`
+
+Streams and compresses a file directly on disk.
+
+```v
+import compressutils
+import os
+
+// Write sample log file
+os.write_file('app.log', '2026-10-10 INFO Startup complete
+2026-10-10 INFO Ready')!
+
+// Compress directly to app.log.gz
+compressutils.compress_file(.gzip, 'app.log', 'app.log.gz')!
+println('Created compressed file. Exists: ${os.exists("app.log.gz")}')
+
+// Decompress to app_restored.log (with max 10MB safety limit)
+compressutils.decompress_file(.gzip, 'app.log.gz', 'app_restored.log', 10 * 1024 * 1024)!
+println('Restored file content: ${os.read_file("app_restored.log")!}')
+
+// Clean up
+os.rm('app.log') or {}
+os.rm('app.log.gz') or {}
+os.rm('app_restored.log') or {}
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -1343,28 +1543,107 @@ println('Uni decompress len: ${uni_d.len}')
 ---
 
 <a id="cronutils"></a><a id="cronutils-api"></a>
-## `cronutils` API Reference
 
-Standard 5-field cron parsing, future execution calculation, and human-readable summarization.
+# cronutils API
+
+**Plain-language purpose:** Use `cronutils` to schedule recurring background tasks (like nightly database backups or hourly health checks) using standard 5-field cron syntax or convenient human macros (`@daily`, `@hourly`).
+
+Import statement:
+
+```v
+import cronutils
+import time
+```
+
+### Cron Syntax Format
+
+Cron expressions specify 5 fields separated by spaces:
+```
+┌───────────── minute (0 - 59)
+│ ┌─────────── hour (0 - 23)
+│ │ ┌───────── day of the month (1 - 31)
+│ │ │ ┌─────── month (1 - 12 or JAN - DEC)
+│ │ │ │ ┌───── day of the week (0 - 6, 0=Sun, or SUN - SAT)
+│ │ │ │ │
+* * * * *
+```
+
+Special symbols:
+- `*`: Any value (runs every minute, hour, day, etc.)
+- `,`: Value list (e.g. `1,15,30`)
+- `-`: Range of values (e.g. `9-17` for 9 AM to 5 PM)
+- `/`: Step values (e.g. `*/10` for every 10 minutes)
+- Predefined macros: `@yearly`, `@monthly`, `@weekly`, `@daily`, `@midnight`, `@hourly`
+
+---
+
+### Parsing & Scheduling Tasks
+
+#### `parse_cron(expr string) !CronSchedule`
+
+Parses and validates a cron expression or macro, returning a `CronSchedule` object ready to calculate execution times.
 
 ```v
 import cronutils
 import time
 
-// Parse standard 5-field cron expression
+// Parse standard 5-field cron: Every 15 minutes during business hours (9am-5pm) Mon-Fri
 sched := cronutils.parse_cron('*/15 9-17 * * 1-5')!
+println('Expression: ${sched.expression}')
 
-// Check if a timestamp matches
+// Calculate the next upcoming execution time after right now
 now := time.now()
-is_due := sched.matches(now)
+next_run := sched.next_after(now)!
+println('Current time: ${now}')
+println('Next run at:  ${next_run}')
 
-// Calculate next run timestamp
-next := sched.next_after(now)!
-println('Next occurrence: ${next}')
+// Check if a specific time matches the schedule
+matches_now := sched.matches(next_run)
+println('Matches next execution time: ${matches_now}') // true
+```
 
-// Convert expression to English summary
-desc := cronutils.cron_to_human('0 0 * * *')
-println(desc) // "Every day at midnight"
+#### `next_n(t time.Time, n int) ![]time.Time`
+
+Calculates a sequence of the next `n` future execution times (ideal for calendar views and upcoming job dashboards).
+
+```v
+import cronutils
+import time
+
+// Daily report schedule at 6:00 AM
+sched := cronutils.parse_cron('0 6 * * *')!
+
+// Get the next 5 days of scheduled runs
+future_runs := sched.next_n(time.now(), 5)!
+println('Upcoming 5 runs:')
+for idx, run_time in future_runs {
+    println('  ${idx + 1}. ${run_time.format_ss()}')
+}
+```
+
+#### `cron_to_human(expr string) string`
+
+Converts a cron expression into an intuitive, plain-English summary for end-user interfaces.
+
+```v
+import cronutils
+
+println(cronutils.cron_to_human('0 0 * * *'))       // "Every day at midnight"
+println(cronutils.cron_to_human('*/15 * * * *'))     // "Every 15 minutes"
+println(cronutils.cron_to_human('0 9 * * 1-5'))     // "At 09:00 on weekdays"
+println(cronutils.cron_to_human('@hourly'))         // "Every hour"
+```
+
+#### `is_valid_cron(expr string) bool`
+
+Checks whether an input string is valid cron syntax without raising errors (ideal for validating web form inputs).
+
+```v
+import cronutils
+
+println(cronutils.is_valid_cron('0 12 * * *'))   // true
+println(cronutils.is_valid_cron('invalid-cron')) // false
+println(cronutils.is_valid_cron('@daily'))       // true
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -1489,29 +1768,161 @@ println(token) // 64 hex characters
 ---
 
 <a id="diffutils"></a><a id="diffutils-api"></a>
-## `diffutils` API Reference
 
-Line-level programmatic diffing, operation trees, and standard unified diff formatting.
+# diffutils API
+
+**Plain-language purpose:** Use `diffutils` to compare two texts, generate standard git-style unified diffs, compute fuzzy text similarity percentages, and apply patches programmatically.
+
+Import statement:
+
+```v
+import diffutils
+```
+
+### Core Operations
+
+- **Unified Diff**: The universal standard format used by git and patch tools to represent added, removed, and modified lines.
+- **Similarity**: Measures the Levenshtein-based similarity between two strings as a ratio from `0.0` (completely different) to `1.0` (identical).
+
+---
+
+### Unified Diff Generation
+
+#### `unified_diff(old_text string, new_text string, filename string) string`
+
+Produces a standard unified diff string showing changes with line headers (`@@ -1,2 +1,2 @@`).
 
 ```v
 import diffutils
 
-v1 := "server_host = 127.0.0.1\nserver_port = 8080"
-v2 := "server_host = 0.0.0.0\nserver_port = 8080"
+old_config := 'server_name=app.test
+port=8080
+debug=true
+'
+new_config := 'server_name=app.test
+port=9000
+debug=false
+workers=4
+'
 
-// Line operations
-ops := diffutils.diff_lines(v1, v2)
+diff := diffutils.unified_diff(old_config, new_config, 'config.env')
+println(diff)
+/*
+--- a/config.env
++++ b/config.env
+@@ -1,3 +1,4 @@
+ server_name=app.test
+-port=8080
+-debug=true
++port=9000
++debug=false
++workers=4
+*/
+```
+
+---
+
+### Granular Line, Word & Character Diffs
+
+#### `diff_lines`, `diff_words`, `diff_chars`
+
+Breaks differences down into individual operation tokens (`DiffOp.equal`, `DiffOp.insert`, `DiffOp.delete`).
+
+```v
+import diffutils
+
+ops := diffutils.diff_lines('apple
+banana
+', 'apple
+cherry
+')
+
 for op in ops {
-    match op.op {
-        .equal  { println('  ${op.text}') }
-        .insert { println('+ ${op.text}') }
-        .delete { println('- ${op.text}') }
+    match op.tag {
+        .equal  { println('  [UNCHANGED] ${op.text}') }
+        .delete { println('- [REMOVED]   ${op.text}') }
+        .insert { println('+ [ADDED]     ${op.text}') }
     }
 }
+```
 
-// Unified diff string
-patch := diffutils.unified_diff(v1, v2, 'config.ini')
-print(patch)
+#### `diff_stats(ops []DiffOp) DiffStats`
+
+Provides statistical counts of additions, deletions, and unchanged elements.
+
+```v
+import diffutils
+
+ops := diffutils.diff_lines('line1
+line2
+', 'line1
+modified line2
+line3
+')
+stats := diffutils.diff_stats(ops)
+
+println('Added: ${stats.additions}, Deleted: ${stats.deletions}, Unchanged: ${stats.unchanged}')
+```
+
+---
+
+### Similarity & Patch Application
+
+#### `similarity(old_text string, new_text string) f64`
+
+Calculates fuzzy text similarity on a scale of `0.0` to `1.0`.
+
+```v
+import diffutils
+
+score1 := diffutils.similarity('Hello World', 'Hello World!')
+score2 := diffutils.similarity('Apple', 'Banana')
+
+println('Score 1: ${score1:.2f}') // e.g. 0.92
+println('Score 2: ${score2:.2f}') // e.g. 0.18
+```
+
+#### `apply_patch(old_text string, patch string) !string`
+
+Applies a standard unified patch to the original text, returning the newly updated content.
+
+```v
+import diffutils
+
+original := 'Alpha
+Beta
+Gamma
+'
+patch := '--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ Alpha
+-Beta
++Delta
+ Gamma
+'
+
+updated := diffutils.apply_patch(original, patch)!
+println('Updated text:
+${updated}')
+// Output: Alpha
+Delta
+Gamma
+
+```
+
+#### `render_ansi(ops []DiffOp) string`
+
+Formats diff operations with green (`+`) and red (`-`) ANSI colors for clean terminal printing.
+
+```v
+import diffutils
+
+ops := diffutils.diff_lines('one
+two', 'one
+three')
+ansi_output := diffutils.render_ansi(ops)
+println(ansi_output)
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -1827,33 +2238,145 @@ println(path)
 ---
 
 <a id="eventutils"></a><a id="eventutils-api"></a>
-## `eventutils` API Reference
 
-In-memory publish-subscribe event dispatching and notification.
+# eventutils API
+
+**Plain-language purpose:** Use `eventutils` to connect decoupled parts of your application via events (Observer / Pub-Sub pattern). When something happens (like a user logging in or a file download finishing), emit an event and let listeners react automatically.
+
+Import statement:
+
+```v
+import eventutils
+```
+
+### Core Concepts
+
+- **EventEmitter**: Manages named events (`string`) with string or JSON payloads.
+- **TypedEmitter[T]**: Type-safe generic event emitter that passes strongly-typed V structs without serialization overhead.
+- **Subscription ID**: An integer returned when subscribing, allowing specific listeners to unsubscribe safely.
+
+---
+
+### String-Based EventEmitter
+
+#### `new_emitter() &EventEmitter`
+
+Creates a new event broker.
+
+```v
+import eventutils
+
+mut em := eventutils.new_emitter()
+```
+
+#### `on(event string, handler fn(string))` & `emit(event string, payload string)`
+
+Registers permanent event listeners and broadcasts notifications.
 
 ```v
 import eventutils
 
 mut em := eventutils.new_emitter()
 
-// Register recurring listener
-em.on('user_login', fn (user string) {
-    println('Logged in: ${user}')
+// Register listener for user log in
+em.on('user_login', fn (username string) {
+    println('Welcome back, ${username}!')
 })
 
-// Register one-time listener
+// Trigger event
+em.emit('user_login', 'alice')
+em.emit('user_login', 'bob')
+// Output:
+// Welcome back, alice!
+// Welcome back, bob!
+```
+
+#### `once(event string, handler fn(string))`
+
+Registers a one-time listener that automatically unregisters itself after firing once.
+
+```v
+import eventutils
+
+mut em := eventutils.new_emitter()
+
 em.once('app_init', fn (status string) {
-    println('Initialized: ${status}')
+    println('Application initialized: ${status}')
 })
 
-// Dispatch events
-em.emit('app_init', 'v1.0')
-em.emit('user_login', 'Alice')
-em.emit('user_login', 'Bob')
+em.emit('app_init', 'ready') // Prints: Application initialized: ready
+em.emit('app_init', 'ready') // Does nothing (listener was removed)
+```
 
-// Check active listener count
-count := em.listener_count('user_login') // 1
-em.clear()
+#### `subscribe(event string, handler fn(string)) int` & `unsubscribe(id int) bool`
+
+Subscribe with an ID so you can cleanly remove the listener later when a component unmounts.
+
+```v
+import eventutils
+
+mut em := eventutils.new_emitter()
+
+// Subscribe and get subscription ID
+sub_id := em.subscribe('heartbeat', fn (ts string) {
+    println('Heartbeat tick: ${ts}')
+})
+
+em.emit('heartbeat', '10:00:00') // Prints tick
+
+// Unsubscribe by ID
+em.unsubscribe(sub_id)
+em.emit('heartbeat', '10:00:05') // No listeners fired
+```
+
+#### `on_any(handler fn(string, string)) int`
+
+Wildcard listener that intercepts every event emitted across the entire system (great for debug loggers and analytics).
+
+```v
+import eventutils
+
+mut em := eventutils.new_emitter()
+
+// Catch-all logger
+em.on_any(fn (event string, payload string) {
+    println('[EVENT LOG] Event: ${event}, Payload: ${payload}')
+})
+
+em.emit('order_placed', 'Order #101')
+em.emit('payment_received', '$49.99')
+```
+
+---
+
+### Type-Safe Generic Emitter (`TypedEmitter[T]`)
+
+#### `new_typed_emitter[T]() &TypedEmitter[T]`
+
+Emits strongly-typed structs directly to listeners with compile-time type safety.
+
+```v
+import eventutils
+
+struct OrderEvent {
+    order_id int
+    total    f64
+    customer string
+}
+
+mut order_bus := eventutils.new_typed_emitter[OrderEvent]()
+
+// Subscribe to typed events
+order_bus.subscribe(fn (ev OrderEvent) {
+    println('Processing Order #${ev.order_id} for ${ev.customer} (Total: $${ev.total:.2f})')
+})
+
+// Emit struct instance directly
+order_bus.emit(OrderEvent{
+    order_id: 42
+    total: 99.50
+    customer: 'Sarah'
+})
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2507,30 +3030,139 @@ debouncer.reset()
 ---
 
 <a id="graphutils"></a><a id="graphutils-api"></a>
-## `graphutils` API Reference
 
-Directed Acyclic Graphs (DAG), dependency ordering via topological sorting, cycle detection, BFS and DFS.
+# graphutils API
+
+**Plain-language purpose:** Use `graphutils` to model relationships between items, resolve dependencies in the correct order (topological sorting), detect circular dependency bugs, and find the shortest or cheapest path between points.
+
+Import statement:
+
+```v
+import graphutils
+```
+
+### Core Data Structures
+
+- **`Graph[T]`**: Unweighted directed graph. Ideal for task dependencies, package build orders, and state transitions.
+- **`WeightedGraph[T]`**: Directed or undirected graph with edge weights/costs. Ideal for route navigation (Dijkstra/A*), logistics, and network cable routing.
+- **`UnionFind`**: Disjoint-set data structure for fast connectivity checks between elements.
+
+---
+
+### Directed Graphs & Topological Sorting (Build Pipelines)
+
+#### `new_graph[T]() Graph[T]`, `add_edge(from T, to T)`, `topological_sort() ![]T`
+
+Solves task execution orders where earlier tasks must complete before downstream tasks can start.
 
 ```v
 import graphutils
 
-mut dag := graphutils.new_graph[string]()
+mut pipeline := graphutils.new_graph[string]()
 
-// Add dependency edges (from -> to)
-dag.add_edge('fetch_deps', 'compile')
-dag.add_edge('compile', 'test')
-dag.add_edge('test', 'deploy')
+// Add dependency edges: add_edge(prerequisite, dependent)
+pipeline.add_edge('fetch_code', 'compile')
+pipeline.add_edge('compile', 'run_tests')
+pipeline.add_edge('run_tests', 'package')
+pipeline.add_edge('package', 'deploy')
 
-// Cycle detection
-has_cycle := dag.has_cycle() // false
+// Compute valid execution order
+order := pipeline.topological_sort()!
+println('Build order: ${order}')
+// Output: ['fetch_code', 'compile', 'run_tests', 'package', 'deploy']
+```
 
-// Kahn's algorithm topological sorting
-order := dag.topological_sort()!
-println('Build order: ${order}') // ["fetch_deps", "compile", "test", "deploy"]
+#### `has_cycle() bool` & `find_cycle() ?[]T`
 
-// Traversals
-bfs_nodes := dag.bfs('fetch_deps')
-dfs_nodes := dag.dfs('fetch_deps')
+Detects deadlocks and circular dependencies (e.g. A depends on B, B depends on A).
+
+```v
+import graphutils
+
+mut g := graphutils.new_graph[string]()
+g.add_edge('ServiceA', 'ServiceB')
+g.add_edge('ServiceB', 'ServiceC')
+g.add_edge('ServiceC', 'ServiceA') // Circular loop!
+
+println('Has cycle: ${g.has_cycle()}') // true
+
+if cycle := g.find_cycle() {
+    println('Detected circular loop: ${cycle}') // ['ServiceA', 'ServiceB', 'ServiceC', 'ServiceA']
+}
+```
+
+#### Traversals: `bfs(start T) []T` & `dfs(start T) []T`
+
+```v
+import graphutils
+
+mut tree := graphutils.new_graph[string]()
+tree.add_edge('root', 'child_1')
+tree.add_edge('root', 'child_2')
+tree.add_edge('child_1', 'leaf_a')
+
+println('Breadth-First: ${tree.bfs("root")}') // Visits level-by-level
+println('Depth-First:   ${tree.dfs("root")}') // Explores full branches first
+```
+
+---
+
+### Weighted Graphs & Shortest Paths (Dijkstra & A*)
+
+#### `new_weighted_graph[T](directed bool) WeightedGraph[T]` & `dijkstra(from T, to T)`
+
+Finds the path with the lowest total cost/distance.
+
+```v
+import graphutils
+
+// Undirected roadmap (false = two-way streets)
+mut roadmap := graphutils.new_weighted_graph[string](false)
+
+roadmap.add_edge('CityA', 'CityB', 10.0)!
+roadmap.add_edge('CityA', 'CityC', 3.0)!
+roadmap.add_edge('CityC', 'CityB', 4.0)! // A -> C -> B is cost 3 + 4 = 7.0 (shorter than 10.0!)
+
+if path := roadmap.dijkstra('CityA', 'CityB') {
+    println('Cheapest path: ${path.nodes}') // ['CityA', 'CityC', 'CityB']
+    println('Total distance: ${path.cost}')  // 7.0
+}
+```
+
+#### `minimum_spanning_tree() []Edge[T]`
+
+Computes the Minimum Spanning Tree (MST) using Kruskal's algorithm, connecting all nodes with minimum total edge weight (minimal cost network cabling).
+
+```v
+import graphutils
+
+mut net := graphutils.new_weighted_graph[string](false)
+net.add_edge('Office1', 'Office2', 5.0)!
+net.add_edge('Office2', 'Office3', 7.0)!
+net.add_edge('Office1', 'Office3', 12.0)!
+
+mst_edges := net.minimum_spanning_tree()
+println('MST connections needed: ${mst_edges.len}')
+```
+
+---
+
+### Disjoint-Set / Union-Find
+
+#### `new_union_find(n int) UnionFind`
+
+Fast near O(1) connectivity queries.
+
+```v
+import graphutils
+
+mut uf := graphutils.new_union_find(10) // 10 elements (0 to 9)
+
+uf.union(0, 1) // Connect 0 and 1
+uf.union(1, 2) // Connect 1 and 2
+
+println('0 and 2 are connected: ${uf.connected(0, 2)}') // true
+println('0 and 5 are connected: ${uf.connected(0, 5)}') // false
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2541,7 +3173,7 @@ dfs_nodes := dag.dfs('fetch_deps')
 
 # htmlutils API
 
-**Plain-language purpose:** Use these tools to inspect and clean up web-page markup. The examples show how to find a heading or paragraph, read its text, and safely handle special characters such as `&` and `<`.
+**Plain-language purpose:** Use `htmlutils` to parse and extract data from HTML web pages, query elements by ID, tag, or class, sanitize untrusted user input against Cross-Site Scripting (XSS), and convert HTML markup into clean plain text.
 
 Import statement:
 
@@ -2549,45 +3181,103 @@ Import statement:
 import htmlutils
 ```
 
-### `HtmlDoc`, `HtmlNode`, & HTML Manipulation
+### Parsing & DOM Queries
 
-DOM querying, text extraction, escaping, unescaping, and tag stripping.
+#### `parse(content string) HtmlDoc` & `parse_file(path string) !HtmlDoc`
 
-- `HtmlNode`: `tag string`, `id string`, `classes []string`, `attributes map[string]string`, `text string`
-- `HtmlDoc`: wrapper around parsed HTML DOM
-- `parse(content string) HtmlDoc`
-- `parse_file(path string) !HtmlDoc`
-- `get_element_by_id(id string) ?HtmlNode`
-- `get_elements_by_tag(tag string) []HtmlNode`
-- `get_elements_by_class(class_name string) []HtmlNode`
-- `title() string`
-- `escape_html(s string) string`
-- `unescape_html(s string) string`
-- `strip_tags(s string) string`
+Parses an HTML document string or file into an inspectable DOM tree.
 
 ```v
 import htmlutils
 
-raw_html := '<!DOCTYPE html><html><head><title>Test Page</title></head><body><h1 id="main-heading" class="title primary">Welcome</h1><p class="desc">V is fast</p></body></html>'
+html := '
+<!DOCTYPE html>
+<html>
+  <head><title>Product Catalog</title></head>
+  <body>
+    <h1 id="header">Store Items</h1>
+    <div class="card"><p class="price">$19.99</p></div>
+    <div class="card"><p class="price">$29.99</p></div>
+    <a href="/checkout" id="buy-btn">Checkout</a>
+  </body>
+</html>'
 
-mut doc := htmlutils.parse(raw_html)
-file_doc := htmlutils.parse_file('page.html') or { doc }
-println('File doc: ' + file_doc.title())
+mut doc := htmlutils.parse(html)
 
-page_title := doc.title()
-println('Title: ${page_title}')
-h1 := doc.get_element_by_id('main-heading') or { panic('missing') }
-println('Header: ${h1.text}, Classes: ${h1.classes}')
+// Get document title
+println('Page title: ${doc.title()}') // "Product Catalog"
 
-paragraphs := doc.get_elements_by_class('desc')
-divs := doc.get_elements_by_tag('p')
-println('Paragraphs: ${paragraphs.len}, Divs: ${divs.len}')
+// Find element by unique ID
+if btn := doc.get_element_by_id('buy-btn') {
+    println('Button label: ${btn.text}')        // "Checkout"
+    println('Target link:  ${btn.attributes["href"]}') // "/checkout"
+}
 
-escaped := htmlutils.escape_html('<div class="box">Hello & "world"</div>')
-unescaped := htmlutils.unescape_html(escaped)
-println(unescaped)
-plain := htmlutils.strip_tags('<b>Bold</b> and <i>Italic</i>')
-println(plain) // "Bold and Italic"
+// Find all elements by tag or class
+cards := doc.get_elements_by_class('card')
+println('Found ${cards.len} product cards')
+
+paragraphs := doc.get_elements_by_tag('p')
+for p in paragraphs {
+    println('Paragraph text: ${p.text}')
+}
+```
+
+---
+
+### Security: XSS Sanitization & Escaping
+
+#### `sanitize_html(input string, allowed []string) string`
+
+Filters untrusted user input, stripping all tags and dangerous attributes (`<script>`, `onload=`, `javascript:`) except for explicitly allowed formatting tags (like `b`, `i`, `p`, `a`).
+
+```v
+import htmlutils
+
+untrusted_comment := '<p>Hello <b>World</b>!<script>alert("XSS stolen cookies!")</script><img src="x" onerror="evil()"></p>'
+
+// Allow only safe formatting tags: 'b', 'i', 'p'
+safe_html := htmlutils.sanitize_html(untrusted_comment, ['b', 'i', 'p'])
+println(safe_html)
+// Output: <p>Hello <b>World</b>!</p>
+```
+
+#### `escape_html(s string) string` & `unescape_html(s string) string`
+
+Replaces HTML special characters (`&`, `<`, `>`, `"`, `'`) with safe HTML entities.
+
+```v
+import htmlutils
+
+unsafe_str := '<script>alert("Attack & exploit")</script>'
+escaped := htmlutils.escape_html(unsafe_str)
+println(escaped)
+// &lt;script&gt;alert(&quot;Attack &amp; exploit&quot;)&lt;/script&gt;
+
+restored := htmlutils.unescape_html(escaped)
+println('Restored: ${restored}')
+```
+
+---
+
+### Plain-Text Extraction
+
+#### `html_to_text(html string) string` & `strip_tags(s string) string`
+
+Removes all HTML tags and collapses whitespace, converting formatted HTML into clean, human-readable plain text (perfect for search indexing and email previews).
+
+```v
+import htmlutils
+
+raw_html := '<div><h1>Order #101</h1><p>Your item has <b>shipped</b>!</p><ul><li>Tracking: 12345</li></ul></div>'
+
+plain := htmlutils.html_to_text(raw_html)
+println('Extracted text:
+${plain}')
+// Output:
+// Order #101
+// Your item has shipped!
+// Tracking: 12345
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2723,43 +3413,152 @@ println(res.body)
 
 # jsonutils API
 
-**Plain-language purpose:** RFC 6901 JSON Pointer, RFC 7386 JSON Merge Patch, canonical deterministic JSON encoding, structural diff, deep equality, and flattening.
+**Plain-language purpose:** Use `jsonutils` for advanced JSON manipulation: navigating deeply nested JSON using RFC 6901 JSON Pointers without writing complex nested map lookups, applying partial updates with RFC 7386 Merge Patch, computing structural diffs, and formatting canonical JSON for cryptographic hashing.
 
 Import statement:
 
 ```v
 import jsonutils
+import json2
 ```
 
-### JSON Pointer, Formatting & Diffing
+### Core Standards
+
+- **RFC 6901 (JSON Pointer)**: String syntax for identifying a specific value within a JSON document (e.g. `/users/0/email` or `/settings/theme`).
+- **RFC 7386 (JSON Merge Patch)**: Standard for applying partial updates to JSON documents (setting a key to `null` deletes it).
+- **RFC 8785 (Canonical JSON)**: Deterministic encoding with sorted keys and minimal whitespace, essential for digital signatures and cache keys.
+
+---
+
+### JSON Pointer Navigation (`pointer_get` & `pointer_set`)
+
+#### `pointer_get(doc json2.Any, ptr string) !json2.Any`
+
+Quickly extract nested data from deep JSON hierarchies without unmarshaling into specific structs.
 
 ```v
 import jsonutils
 
-src := '{"b": 2, "a": [1, 2, {"z": true, "y": null}]}'
+json_str := '
+{
+  "store": {
+    "name": "Downtown Books",
+    "inventory": [
+      { "id": 1, "title": "The V Programming Language", "price": 29.99 },
+      { "id": 2, "title": "Rapid Application Dev", "price": 34.50 }
+    ]
+  }
+}'
 
-// Canonical sorted-key encoding & formatting
-canonical := jsonutils.canonical(src)!
-minified := jsonutils.minify(src)!
-pretty := jsonutils.pretty(src)!
+doc := jsonutils.parse(json_str)!
 
-// JSON Pointer (RFC 6901)
-doc := jsonutils.parse(src)!
-z := jsonutils.pointer_get(doc, '/a/2/z')! // true
-updated := jsonutils.pointer_set(doc, '/b', jsonutils.parse('42')!)!
+// Retrieve the store name
+store_name := jsonutils.pointer_get(doc, '/store/name')!
+println('Store: ${store_name.str()}') // "Downtown Books"
 
-// Structural diff
-diff_ops := jsonutils.diff(doc, updated)
-for op in diff_ops {
-    println('diff: ${op.op} ${op.path}')
+// Retrieve the second book title (index 1)
+second_title := jsonutils.pointer_get(doc, '/store/inventory/1/title')!
+println('Second book: ${second_title.str()}') // "Rapid Application Dev"
+```
+
+#### `pointer_set(doc json2.Any, ptr string, val json2.Any) !json2.Any`
+
+Updates, replaces, or inserts values at a specific JSON pointer path.
+
+```v
+import jsonutils
+import json2
+
+doc := jsonutils.parse('{"user": { "name": "Alice" }}')!
+
+// Add a new email field
+updated := jsonutils.pointer_set(doc, '/user/email', json2.Any('alice@example.com'))!
+println('Updated JSON: ${updated.str()}')
+// {"user":{"name":"Alice","email":"alice@example.com"}}
+```
+
+---
+
+### RFC 7386 JSON Merge Patch
+
+#### `merge_patch_str(target string, patch string) !string`
+
+Applies partial updates to a JSON string. Matching fields are replaced, new fields are added, and fields with `null` values are removed.
+
+```v
+import jsonutils
+
+original := '{"theme":"dark","volume":80,"notifications":true}'
+patch    := '{"volume":95,"notifications":null,"font":"Inter"}'
+
+// Apply merge patch
+updated := jsonutils.merge_patch_str(original, patch)!
+println(updated)
+// Output: {"theme":"dark","volume":95,"font":"Inter"}
+// (notifications was deleted because its patch value was null)
+```
+
+---
+
+### Structural Diffs & Flattening
+
+#### `diff(a json2.Any, b json2.Any) []Change`
+
+Computes a list of exact structural differences between two JSON trees.
+
+```v
+import jsonutils
+
+doc_a := jsonutils.parse('{"status": "pending", "items": [1, 2]}')!
+doc_b := jsonutils.parse('{"status": "shipped", "items": [1, 2, 3]}')!
+
+changes := jsonutils.diff(doc_a, doc_b)
+for change in changes {
+    println('Op: ${change.op}, Path: ${change.path}, Value: ${change.value}')
 }
+// Op: replace, Path: /status, Value: "shipped"
+// Op: add, Path: /items/2, Value: 3
+```
 
-// JSON Merge Patch (RFC 7386)
-patched := jsonutils.merge_patch_str('{"title":"Hello","author":{"name":"Ann","email":"a@x.io"}}',
-    '{"title":"Hi","author":{"email":null}}')!
+#### `flatten(a json2.Any) map[string]string`
 
-// Flatten
-flattened := jsonutils.flatten(doc)
+Flattens deep nested JSON structures into dot-delimited single-level key-value maps.
+
+```v
+import jsonutils
+
+doc := jsonutils.parse('{"app":{"database":{"host":"localhost","port":5432}}}')!
+flat := jsonutils.flatten(doc)
+
+for k, v in flat {
+    println('${k} = ${v}')
+}
+// app.database.host = localhost
+// app.database.port = 5432
+```
+
+---
+
+### Canonical Formatting, Pretty Printing & Minification
+
+```v
+import jsonutils
+
+messy_json := '{
+  "b": 2,  "a": 1  
+}'
+
+// RFC 8785 Canonical JSON (keys are sorted alphabetically: "a", then "b")
+canonical_json := jsonutils.canonical(messy_json)!
+println(canonical_json) // '{"a":1,"b":2}'
+
+// Format with clean 2-space indentation
+pretty_json := jsonutils.pretty(canonical_json)!
+println(pretty_json)
+
+// Strip all unnecessary whitespace
+minified := jsonutils.minify(pretty_json)!
+println(minified) // '{"a":1,"b":2}'
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2767,29 +3566,116 @@ flattened := jsonutils.flatten(doc)
 ---
 
 <a id="jwtutils"></a><a id="jwtutils-api"></a>
-## `jwtutils` API Reference
 
-Zero-dependency HS256 JSON Web Token signing, claims parsing, and verification.
+# jwtutils API
+
+**Plain-language purpose:** Use `jwtutils` to issue and verify tamper-proof JSON Web Tokens (JWT) for user authentication, API sessions, and inter-service authorization using secure HMAC algorithms (HS256, HS384, HS512).
+
+Import statement:
+
+```v
+import jwtutils
+```
+
+### Core Security Principles
+
+- **Algorithm Pinning**: Strict enforcement of the expected algorithm to prevent algorithm substitution attacks (`alg=none`).
+- **Constant-Time Comparison**: Cryptographic signatures are verified in constant time to eliminate timing side-channel attacks.
+- **Clock Skew Tolerance**: Configurable leeway seconds to tolerate minor clock drift between distributed servers.
+
+---
+
+### Quick Tokens (Simple Authentication)
+
+#### `sign_simple_token(sub string, secret string, ttl_seconds i64) !string` & `verify_jwt`
+
+Issues a lightweight token containing the subject ID (`sub`) with an automatic expiration timestamp (`exp`).
+
+```v
+import jwtutils
+
+secret := 'super-secure-production-secret-key-32chars'
+
+// Issue a token for user ID "usr_9981" valid for 1 hour (3600 seconds)
+token := jwtutils.sign_simple_token('usr_9981', secret, 3600)!
+println('Bearer token:
+${token}')
+
+// Verify incoming token
+claims := jwtutils.verify_jwt(token, secret)!
+println('Authenticated User: ${claims.sub}')
+println('Token Issued At:     ${claims.iat}')
+println('Token Expires At:    ${claims.exp}')
+```
+
+---
+
+### Advanced Tokens with Registered Claims & Options
+
+#### `sign_jwt_with` & `verify_jwt_with(token string, secret string, opts VerifyOptions) !JWTClaims`
+
+Full control over algorithm choice, issuer, audience, and validation leeway.
 
 ```v
 import jwtutils
 import time
 
-// Sign JWT with registered and custom claims
+secret := 'my-secret-signing-key-for-jwt-tokens'
+
+// 1. Create custom registered claims
+now := time.now().unix()
 claims := jwtutils.JWTClaims{
     sub: 'user_42'
-    iss: 'auth_service'
-    exp: time.now().unix() + 3600
-    custom: { 'role': 'admin' }
+    iss: 'https://auth.myapp.com'
+    aud: 'https://api.myapp.com'
+    iat: now
+    exp: now + 1800 // 30 minutes
 }
-token := jwtutils.sign_jwt(claims, 'secret_signing_key')!
 
-// Verify signature and expiration
-verified := jwtutils.verify_jwt(token, 'secret_signing_key')!
-println('Subject: ${verified.sub}, Role: ${verified.custom['role']}')
+// 2. Sign token with SHA-512 HMAC
+token := jwtutils.sign_jwt_with(claims, secret, .hs512)!
 
-// Sign simple token
-simple_token := jwtutils.sign_simple_token('worker_1', 'secret_key', 300)!
+// 3. Verify with strict policy enforcement
+verified_claims := jwtutils.verify_jwt_with(token, secret, jwtutils.VerifyOptions{
+    algorithm:       .hs512
+    issuer:          'https://auth.myapp.com'
+    audience:        'https://api.myapp.com'
+    require_exp:     true
+    leeway_seconds:  30 // Allow up to 30s clock drift
+})!
+
+println('Successfully verified token for: ${verified_claims.sub}')
+```
+
+---
+
+### Token Refresh & Unverified Inspection
+
+#### `refresh_jwt(token string, secret string, ttl_seconds i64, opts VerifyOptions) !string`
+
+Verifies an existing valid token and generates a new token with an updated expiration window.
+
+```v
+import jwtutils
+
+secret := 'my-secret-key'
+old_token := jwtutils.sign_simple_token('user_10', secret, 300)!
+
+// Refresh for another 1 hour (3600s)
+new_token := jwtutils.refresh_jwt(old_token, secret, 3600, jwtutils.VerifyOptions{})!
+println('Refreshed token: ${new_token}')
+```
+
+#### `decode_jwt_unverified(token string) !JWTClaims`
+
+Parses claims without verifying the cryptographic signature (use *only* for unauthenticated routing or log inspection; never use unverified claims for authorization).
+
+```v
+import jwtutils
+
+token := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.do_not_trust_signature'
+claims := jwtutils.decode_jwt_unverified(token)!
+println('Subject identifier: ${claims.sub}')
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2800,7 +3686,7 @@ simple_token := jwtutils.sign_simple_token('worker_1', 'secret_key', 300)!
 
 # logutils API
 
-**Plain-language purpose:** Use these tools to leave a clear record of what your program is doing, especially when something goes wrong. The examples show message levels so important warnings stand out from routine notes.
+**Plain-language purpose:** Use `logutils` for production-grade logging. Print colorized logs to the terminal, write structured logs to disk, format output as standard key-value (`logfmt`) or JSON records for cloud log services, automatically redact sensitive passwords, and rotate large log files.
 
 Import statement:
 
@@ -2808,35 +3694,134 @@ Import statement:
 import logutils
 ```
 
-### `LoggerConfig` & `Logger`
+### Log Levels
 
-Configures structured, level-filtered logging to console and disk.
+- `.debug`: Verbose debugging information
+- `.info`: Normal operational events
+- `.warn`: Non-critical warnings
+- `.error`: Recoverable errors and operation failures
+- `.fatal`: Critical crashes (prints error and calls `exit(1)`)
 
-- `LogLevel`: `.debug`, `.info`, `.warn`, `.error`, `.fatal`
-- `LogOutput`: `.console`, `.file`, `.both`
-- `new_logger(cfg LoggerConfig) Logger`
-- `set_level(level LogLevel)`
-- `set_file(path string)`
-- `format_message(level LogLevel, msg string, now time.Time, colored bool) string`
-- `debug(msg string)`, `info(msg string)`, `warn(msg string)`, `error(msg string)`, `fatal(msg string)`
+---
+
+### Standard Leveled Logging
+
+#### `new_logger(cfg LoggerConfig) Logger`
+
+Creates a logger with customized destination and minimum level filter.
+
+```v
+import logutils
+
+// Create a logger outputting to terminal
+mut logger := logutils.new_logger(
+    level:          .debug
+    output:         .stdout // .stdout, .stderr, .file, or .both
+    show_timestamp: true
+    colored:        true
+)
+
+logger.debug('Connecting to database on port 5432...')
+logger.info('Database connection established')
+logger.warn('Disk space usage is at 82%')
+logger.error('Failed to load profile photo: file not found')
+```
+
+#### File Logging & Dynamic Level Changes
 
 ```v
 import logutils
 
 mut logger := logutils.new_logger(
-    level: .info
-    output: .both
+    level:     .info
+    output:    .file
     file_path: 'app.log'
-    use_color: true
-    show_timestamp: true
 )
 
-logger.set_level(.debug)
-logger.set_file('custom_app.log')
-logger.info('Application service initialized')
-logger.warn('Elevated cache memory usage detected')
-logger.error('Database connection timeout')
-logger.fatal('Fatal startup panic averted')
+logger.info('Writing logs directly to file')
+
+// Dynamically change logging level at runtime
+logger.set_level(.warn)
+logger.info('This will be ignored (below .warn)')
+logger.warn('This warning will be written to app.log')
+```
+
+---
+
+### Structured Logging (Logfmt & JSON)
+
+#### `log_kv(level LogLevel, msg string, fields map[string]string)`
+
+Outputs in clean `logfmt` key-value format (popular in Heroku, Grafana Loki, and modern DevOps tooling).
+
+```v
+import logutils
+
+mut logger := logutils.new_logger(level: .info, output: .stdout)
+
+logger.log_kv(.info, 'user_action', {
+    'user_id': '42'
+    'action':  'checkout'
+    'amount':  '49.99'
+})
+// Output: [INFO] user_action action=checkout amount=49.99 user_id=42
+```
+
+#### `log_json(level LogLevel, msg string, fields map[string]string)`
+
+Outputs newline-delimited JSON records (ideal for Datadog, AWS CloudWatch, and Elasticsearch).
+
+```v
+import logutils
+
+mut logger := logutils.new_logger(level: .info, output: .stdout)
+
+logger.log_json(.error, 'api_failure', {
+    'endpoint': '/api/v1/users'
+    'status':   '500'
+    'ip':       '192.168.1.10'
+})
+// Output: {"ts":"2026-10-10T12:00:00Z","level":"error","msg":"api_failure","endpoint":"/api/v1/users","ip":"192.168.1.10","status":"500"}
+```
+
+---
+
+### Security: Credential Redaction & Log Rotation
+
+#### `redact_fields(fields map[string]string, secret_keys []string) map[string]string`
+
+Automatically masks passwords, bearer tokens, and API secrets with `[REDACTED]`.
+
+```v
+import logutils
+
+raw_fields := {
+    'user':         'john_doe'
+    'password':     'super_secret_pw'
+    'api_key':      'sk_live_9981881'
+    'access_token': 'ghp_xxxx'
+}
+
+// Built-in secret keys automatically mask password, secret, token, api_key, etc.
+safe_fields := logutils.redact_fields(raw_fields, logutils.default_secret_keys)
+println(safe_fields['password'])     // "[REDACTED]"
+println(safe_fields['api_key'])      // "[REDACTED]"
+println(safe_fields['access_token']) // "[REDACTED]"
+println(safe_fields['user'])         // "john_doe" (preserved)
+```
+
+#### `rotate_file(path string, max_bytes i64, keep int) !bool`
+
+Rotates a log file when it exceeds `max_bytes`, keeping up to `keep` archive copies (e.g. `app.log.1`, `app.log.2`).
+
+```v
+import logutils
+
+// Rotate app.log if it exceeds 10 MB (10,485,760 bytes), keeping up to 5 backups
+rotated := logutils.rotate_file('app.log', 10 * 1024 * 1024, 5)!
+if rotated {
+    println('Log file was rotated')
+}
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2847,7 +3832,7 @@ logger.fatal('Fatal startup panic averted')
 
 # markdownutils API
 
-**Plain-language purpose:** CommonMark-style Markdown to HTML conversion with GitHub Flavored Markdown (GFM) tables, task lists, nested lists, heading anchors, table of contents (TOC), and plain-text conversion.
+**Plain-language purpose:** Use `markdownutils` to convert Markdown text into clean, safe HTML (with support for GitHub tables, task lists, and syntax blocks), auto-generate clickable Tables of Contents, and extract plain-text previews.
 
 Import statement:
 
@@ -2855,25 +3840,109 @@ Import statement:
 import markdownutils
 ```
 
-### Markdown Parsing & HTML Generation
+### Features
+
+- **Safe HTML**: JavaScript URLs (`javascript:`) and malicious handlers are neutralized by default.
+- **GFM Extensions**: Tables with alignment, task checkboxes (`- [ ]`, `- [x]`), fenced code blocks, and blockquotes.
+- **Navigation**: Generates slugified heading anchors (`#my-heading`) and clickable Table of Contents.
+
+---
+
+### Converting Markdown to HTML
+
+#### `to_html(md string, opts Options) string`
+
+Translates Markdown syntax into semantic HTML elements.
 
 ```v
 import markdownutils
 
-md := '# Release Notes\n\nWelcome to **v2.0** of `vlang_utils`.\n\n## Highlights\n\n- [x] Security fixes\n- [ ] Roadmap\n\n| Module | Status |\n|---|---|\n| jsonutils | new |\n'
+md := '
+# Project Overview
 
-// Render to HTML (safe links with protocol neutralization)
-html := markdownutils.to_html(md)
+Welcome to the **vlang_utils** toolkit!
 
-// Extract outline & table of contents
-headings := markdownutils.headings(md)
-toc := markdownutils.toc(md, 3)
+### Features
+- [x] Fast & compiled
+- [ ] Needs documentation
 
-// Slugify heading text
-slug := markdownutils.slug('Hello, World! 2.0')
+| Feature | Status |
+| :--- | :--- |
+| SQLite | Supported |
+| JSON | Supported |
 
-// Strip formatting to plain text
-plain := markdownutils.to_plain_text(md)
+```v
+import strutils
+println("Hello")
+```
+'
+
+html := markdownutils.to_html(md, markdownutils.Options{
+    heading_ids: true // Adds id="project-overview" to headings for anchor links
+})
+println(html)
+```
+
+---
+
+### Generating Tables of Contents & Heading Slugs
+
+#### `toc(md string, max_level int) string`
+
+Generates an indented Markdown Table of Contents linking to heading anchors up to `max_level` (e.g. 1 to 3).
+
+```v
+import markdownutils
+
+document := '
+# Getting Started
+## Installation
+### From Binary
+## Configuration
+# Advanced Usage
+'
+
+toc_markdown := markdownutils.toc(document, 3)
+println('Table of Contents:
+${toc_markdown}')
+/*
+Output:
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+    - [From Binary](#from-binary)
+  - [Configuration](#configuration)
+- [Advanced Usage](#advanced-usage)
+*/
+```
+
+#### `slug(text string) string`
+
+Converts any arbitrary heading text into a clean URL-friendly anchor ID.
+
+```v
+import markdownutils
+
+println(markdownutils.slug('Getting Started with V!')) // "getting-started-with-v"
+println(markdownutils.slug('Feature #1: SQLite & DB'))  // "feature-1-sqlite-db"
+```
+
+---
+
+### Plain-Text Extraction (Previews & Excerpts)
+
+#### `to_plain_text(md string) string`
+
+Strips all Markdown formatting symbols, producing clean, human-readable text suitable for search snippets, push notifications, and blog previews.
+
+```v
+import markdownutils
+
+markdown_summary := '## Update Available!
+
+Please check **Settings** -> `System` to update.'
+preview := markdownutils.to_plain_text(markdown_summary)
+println(preview)
+// Output: "Update Available! Please check Settings -> System to update."
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -2881,30 +3950,162 @@ plain := markdownutils.to_plain_text(md)
 ---
 
 <a id="mathutils"></a><a id="mathutils-api"></a>
-## `mathutils` API Reference
 
-2D mathematics, spatial geometry, interpolation, clamping, and number theory.
+# mathutils API
+
+**Plain-language purpose:** Use `mathutils` for everyday numerical calculations, clamping and remapping values (like volume or UI sliders), 2D vector geometry, GPS distance calculation, and number theory functions (primes, GCD, LCM).
+
+Import statement:
+
+```v
+import mathutils
+```
+
+### Clamping, Interpolation & Snapping
+
+#### `clamp(v f64, min f64, max f64) f64` & `clamp_int(v int, min int, max int) int`
+
+Restricts a numerical value within an allowed lower and upper bound.
 
 ```v
 import mathutils
 
-// 1. Interpolation & Mapping
-val := mathutils.remap(50.0, 0.0, 100.0, 0.0, 1.0) // 0.5
-snapped := mathutils.round_to_step(4.78, 0.25)      // 4.75
-clamped := mathutils.clamp(120.0, 0.0, 100.0)       // 100.0
+// Ensure sound volume is strictly between 0% and 100%
+volume := mathutils.clamp(120.0, 0.0, 100.0)
+println('Clamped volume: ${volume}') // 100.0
 
-// 2. Geometry
+level := mathutils.clamp_int(-5, 0, 10)
+println('Clamped level: ${level}')   // 0
+```
+
+#### `lerp(a f64, b f64, t f64) f64` & `inverse_lerp(a f64, b f64, v f64) f64`
+
+Linear interpolation for animations, camera transitions, and UI easing. `t` ranges from `0.0` (start) to `1.0` (end).
+
+```v
+import mathutils
+
+// At 0% progress (t=0.0) -> 10.0; at 50% (t=0.5) -> 30.0; at 100% (t=1.0) -> 50.0
+pos := mathutils.lerp(10.0, 50.0, 0.5)
+println('Midpoint: ${pos}') // 30.0
+
+// Find where a value sits proportionally between two bounds
+progress := mathutils.inverse_lerp(10.0, 50.0, 30.0)
+println('Progress percentage: ${progress * 100}%') // 50%
+```
+
+#### `remap(v f64, in_min f64, in_max f64, out_min f64, out_max f64) f64`
+
+Converts a number from one range into another proportional range (e.g. mapping a 0-100 sensor reading to a 0-255 RGB byte).
+
+```v
+import mathutils
+
+// Map slider percentage (0 to 100) to RGB brightness (0 to 255)
+brightness := mathutils.remap(50.0, 0.0, 100.0, 0.0, 255.0)
+println('Brightness: ${brightness}') // 127.5
+```
+
+#### `round_to_step(v f64, step f64) f64` & `round_to(v f64, decimals int) f64`
+
+Snaps a continuous number to a specific grid step or decimal precision.
+
+```v
+import mathutils
+
+// Snap item position to 16-pixel tile grid
+snapped := mathutils.round_to_step(35.2, 16.0)
+println('Snapped to 16px: ${snapped}') // 32.0
+
+// Round currency to 2 decimal places
+rounded := mathutils.round_to(19.8765, 2)
+println('Rounded: ${rounded}') // 19.88
+```
+
+---
+
+### 2D Geometry & Spatial Distance
+
+#### `Point2D[T]`, `distance[T](p1 Point2D[T], p2 Point2D[T]) f64`
+
+Represents points in 2D coordinate space and measures Euclidean distances.
+
+```v
+import mathutils
+
 p1 := mathutils.Point2D[f64]{ x: 0.0, y: 0.0 }
 p2 := mathutils.Point2D[f64]{ x: 3.0, y: 4.0 }
-dist := mathutils.distance(p1, p2)                  // 5.0
-rect := mathutils.Rect[f64]{ x: 0.0, y: 0.0, width: 10.0, height: 10.0 }
-inside := mathutils.rect_contains_point(rect, Point2D[f64]{ x: 5.0, y: 5.0 }) // true
 
-// 3. Number Theory
-gcd_val := mathutils.gcd(84, 18)                    // 6
-lcm_val := mathutils.lcm(12, 18)                    // 36
-is_pow2 := mathutils.is_power_of_two(64)            // true
-next_pow2 := mathutils.next_power_of_two(33)        // 64
+dist := mathutils.distance(p1, p2)
+println('Distance between points: ${dist}') // 5.0 (Pythagorean 3-4-5 triangle)
+```
+
+#### GPS Geographic Distance (`haversine_km`)
+
+Calculates the great-circle distance between two GPS latitude/longitude coordinates on Earth in kilometers.
+
+```v
+import mathutils
+
+// New York City (40.7128° N, 74.0060° W) to London (51.5074° N, 0.1278° W)
+nyc_lat := 40.7128
+nyc_lon := -74.0060
+lon_lat := 51.5074
+lon_lon := -0.1278
+
+dist_km := mathutils.haversine_km(nyc_lat, nyc_lon, lon_lat, lon_lon)
+println('Distance NYC to London: ${dist_km:.1f} km') // ~5570 km
+```
+
+#### 2D Vectors (`Vec2`)
+
+Vector mathematics for game development, physics, and canvas rendering.
+
+```v
+import mathutils
+
+v1 := mathutils.Vec2{ x: 2.0, y: 3.0 }
+v2 := mathutils.Vec2{ x: 4.0, y: 1.0 }
+
+sum := v1.add(v2)
+scaled := v1.scale(2.0)
+len := v1.length()
+norm := v1.normalize()
+
+println('Sum: (${sum.x}, ${sum.y})')       // (6.0, 4.0)
+println('Scaled: (${scaled.x}, ${scaled.y})') // (4.0, 6.0)
+println('Vector Length: ${len:.2f}')
+```
+
+---
+
+### Number Theory & Prime Calculations
+
+#### `is_prime(n u64) bool`, `primes_up_to(limit int) []int`
+
+Miller-Rabin deterministic primality testing and Sieve of Eratosthenes.
+
+```v
+import mathutils
+
+println('17 is prime: ${mathutils.is_prime(17)}') // true
+println('18 is prime: ${mathutils.is_prime(18)}') // false
+
+// Generate all prime numbers up to 30
+primes := mathutils.primes_up_to(30)
+println('Primes up to 30: ${primes}')
+// [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+```
+
+#### `gcd(a i64, b i64) i64` & `lcm(a i64, b i64) i64`
+
+Greatest Common Divisor and Least Common Multiple.
+
+```v
+import mathutils
+
+println('GCD of 48 and 18: ${mathutils.gcd(48, 18)}') // 6
+println('LCM of 12 and 15: ${mathutils.lcm(12, 15)}') // 60
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5023,7 +6224,7 @@ println('Excess Kurtosis: ${summary.kurtosis:.2f}')
 
 # structutils API
 
-**Plain-language purpose:** Use these ready-made containers when a normal list is not the best fit, such as a queue for first-in-first-out work or a stack for last-in-first-out work. The examples add a few familiar values and then show how they are retrieved.
+**Plain-language purpose:** Use `structutils` when you need classic, high-performance data structures beyond basic arrays and maps: Stacks (undo/redo), Queues (job processing), Circular Ring Buffers (audio/logging), Priority Queues, Double-ended Deques, Prefix Trees (Trie autocomplete), Bloom Filters (membership checking without disk IO), and HyperLogLog (counting millions of unique users in tiny memory).
 
 Import statement:
 
@@ -5031,83 +6232,199 @@ Import statement:
 import structutils
 ```
 
-### Generic Stack: `SimpleStack[T]` (LIFO)
+### 1. Generic Stack (LIFO - Last In, First Out)
 
-Fast, thread-safe generic Last-In-First-Out stack.
+Ideal for undo/redo history, syntax expression parsing, and backtracking.
 
 ```v
 import structutils
 
 mut stack := structutils.new_stack[string]()
-stack.push('first')
-stack.push('second')
-stack.push('third')
 
-println('Top: ${stack.peek() or { "" }}') // "third"
-item := stack.pop() or { '' }             // "third"
-println('Popped: ${item}, Remaining: ${stack.len()}')
+stack.push('Page 1')
+stack.push('Page 2')
+stack.push('Page 3')
 
-items := stack.to_array() // ['first', 'second']
-println(items)
-stack.clear()
-println('Is empty: ${stack.is_empty()}') // true
+println('Current top: ${stack.peek() or { "" }}') // "Page 3"
+println('Popped:      ${stack.pop() or { "" }}')  // "Page 3"
+println('Remaining:   ${stack.len()}')            // 2
 ```
 
-### Generic Queue: `SimpleQueue[T]` (FIFO)
+---
 
-Generic First-In-First-Out queue.
+### 2. Generic Queue (FIFO - First In, First Out)
+
+Ideal for background job pipelines, task schedulers, and breadth-first search queues.
 
 ```v
 import structutils
 
-mut queue := structutils.new_queue[int]()
-queue.push(10)
-queue.push(20)
-queue.push(30)
+mut queue := structutils.new_queue[string]()
 
-first := queue.pop() or { 0 } // 10
-println('First out: ${first}')
-println('Next up: ${queue.peek() or { 0 }}') // 20
+queue.push('Task A')
+queue.push('Task B')
+queue.push('Task C')
+
+println('Next to process: ${queue.peek() or { "" }}') // "Task A"
+println('Processed:       ${queue.pop() or { "" }}')  // "Task A"
+println('Remaining jobs:  ${queue.len()}')            // 2
 ```
 
-### Circular Ring Buffer: `SimpleRingBuffer[T]`
+---
 
-Fixed-capacity circular buffer that automatically drops the oldest item when capacity is exceeded.
+### 3. Circular Ring Buffer (Fixed Capacity)
+
+A memory-efficient fixed-size buffer that automatically wraps around without reallocating memory. Great for maintaining the last N log entries or streaming audio samples.
 
 ```v
 import structutils
 
+// Create a ring buffer with maximum capacity of 3 items
 mut ring := structutils.new_ring_buffer[string](3)
+
 ring.push('log_1')
 ring.push('log_2')
 ring.push('log_3')
-println('Is ring buffer full: ${ring.is_full()}') // true
+println('Buffer full: ${ring.is_full()}') // true
 
-ring.push('log_4') // automatically overwrites 'log_1'
+// Pushing a 4th item overwrites the oldest item ('log_1')
+ring.push('log_4')
 
-// Contents: ['log_2', 'log_3', 'log_4']
-println('Recent logs: ${ring.to_array()}')
-oldest := ring.pop() or { '' } // "log_2"
-println('Oldest: ${oldest}')
+println('Current items: ${ring.to_array()}') // ['log_2', 'log_3', 'log_4']
 ```
 
-### Priority Queue: `SimpleMinHeap`
+---
 
-Binary min-heap where lowest numerical values are popped with highest priority.
+### 4. Generic Set (`GenericSet[T]`)
+
+Stores unique elements with fast O(1) membership checks and deduplication.
 
 ```v
 import structutils
 
-mut heap := structutils.new_min_heap()
-heap.push(50.0)
-heap.push(12.5)
-heap.push(3.0)
-heap.push(25.0)
+mut active_users := structutils.new_set[string]()
 
-println('Smallest: ${heap.peek() or { 0.0 }}') // 3.0
-val1 := heap.pop() or { 0.0 }
-val2 := heap.pop() or { 0.0 }
-println('Popped: ${val1}, ${val2}') // 3.0, 12.5
+active_users.add('alice')
+active_users.add('bob')
+active_users.add('alice') // Duplicate is ignored
+
+println('Unique users: ${active_users.size()}') // 2
+println('Has alice:    ${active_users.contains("alice")}') // true
+println('Has charlie:  ${active_users.contains("charlie")}') // false
+
+active_users.remove('bob')
+println('After removal: ${active_users.to_array()}') // ['alice']
+```
+
+---
+
+### 5. Priority Queue (`PriorityQueue[T]`)
+
+Extracts elements ordered by priority (min or max) using a heap.
+
+```v
+import structutils
+
+struct Job {
+    name     string
+    priority int // Lower number = higher priority
+}
+
+// Create priority queue where job with lowest priority number comes out first
+mut pq := structutils.new_priority_queue[Job](fn (a Job, b Job) bool {
+    return a.priority < b.priority
+})
+
+pq.push(Job{ name: 'Low Priority Clean Up', priority: 10 })
+pq.push(Job{ name: 'Critical Bug Fix',      priority: 1 })
+pq.push(Job{ name: 'Feature Implementation', priority: 5 })
+
+// Highest priority (lowest number) pops first
+first := pq.pop() or { panic('empty') }
+println('First job: ${first.name}') // "Critical Bug Fix"
+```
+
+---
+
+### 6. Double-Ended Queue (`Deque[T]`)
+
+Allows efficient O(1) insertions and deletions at both the beginning and the end.
+
+```v
+import structutils
+
+mut deque := structutils.new_deque[string]()
+
+deque.push_back('Middle')
+deque.push_front('First')
+deque.push_back('Last')
+
+println('Deque items: ${deque.to_array()}') // ['First', 'Middle', 'Last']
+println('Pop front:   ${deque.pop_front() or { "" }}') // 'First'
+println('Pop back:    ${deque.pop_back() or { "" }}')  // 'Last'
+```
+
+---
+
+### 7. Prefix Tree (`Trie`) for Search Autocompletion
+
+Stores words in a tree structure to quickly search for all words matching a typed prefix.
+
+```v
+import structutils
+
+mut trie := structutils.new_trie()
+
+// Insert dictionary words
+trie.insert('apple')
+trie.insert('application')
+trie.insert('apply')
+trie.insert('banana')
+
+// Autocomplete suggestions for prefix "app" (up to 5 results)
+suggestions := trie.with_prefix('app', 5)
+println('Suggestions for "app": ${suggestions}')
+// ['apple', 'application', 'apply']
+```
+
+---
+
+### 8. Bloom Filter (Fast Probabilistic Membership)
+
+Checks if an element is definitely not present or possibly present, without querying slow databases or disks.
+
+```v
+import structutils
+
+// Expecting ~1,000 items with a 1% (0.01) false positive rate
+mut bloom := structutils.new_optimal_bloom(1000, 0.01)!
+
+bloom.add('https://spammy-site.com')
+bloom.add('https://phishing-link.org')
+
+println('Blocked: ${bloom.contains("https://spammy-site.com")}') // true
+println('Safe:    ${bloom.contains("https://google.com")}')      // false
+```
+
+---
+
+### 9. HyperLogLog (Massive Cardinality Counting)
+
+Estimates the count of unique items (e.g. unique website visitors) using only a few kilobytes of RAM for billions of items.
+
+```v
+import structutils
+
+// Precision parameter 12 uses ~4 KB of memory
+mut hll := structutils.new_hyperloglog(12)!
+
+// Add millions of events (duplicates are automatically handled)
+hll.add('visitor_ip_1')
+hll.add('visitor_ip_2')
+hll.add('visitor_ip_1') // duplicate
+hll.add('visitor_ip_3')
+
+println('Estimated unique visitors: ${hll.count()}') // ~3
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5602,7 +6919,7 @@ sysutils.say('Build finished successfully') or {}
 
 # tarutils API
 
-**Plain-language purpose:** Use these tools to create and unpack TAR archives, a common way to bundle files on Unix-like systems. The examples cover both in-memory data and archive files stored on disk.
+**Plain-language purpose:** Use `tarutils` to create and extract standard Unix `.tar` and `.tar.gz` archive bundles, package complete directory trees with relative paths, inspect archive headers without disk writes, and read files directly from inside archives.
 
 Import statement:
 
@@ -5610,37 +6927,97 @@ Import statement:
 import tarutils
 ```
 
-### POSIX ustar TAR Archive Management
+### Core Formats
 
-Creating, packing, inspecting, and extracting archives in pure V.
+- **`.tar`**: Uncompressed tape archive packaging multiple files into one sequential container.
+- **`.tar.gz` / `.tgz`**: Gzip-compressed tar archive commonly used for software distribution and Linux backups.
 
-- `TarEntry`: `name string`, `size int`, `is_dir bool`, `data []u8`
-- `pack_bytes(entries []TarEntry) []u8`
-- `unpack_bytes(data []u8) ![]TarEntry`
-- `create_tar(tar_path string, file_paths []string) !bool`
-- `list_tar_entries(tar_path string) ![]TarEntry`
-- `extract_tar(tar_path string, dest_dir string) !bool`
-- `read_tar_file(tar_path string, filename string) !string`
+---
+
+### Creating & Extracting Tar Archives
+
+#### `create_tar(tar_path string, file_paths []string) !bool`
+
+Bundles a list of files into a `.tar` archive file.
 
 ```v
 import tarutils
 
-// In-memory TAR packing and unpacking
-entries := [
-    tarutils.TarEntry{ name: 'hello.txt', size: 12, is_dir: false, data: 'Hello World!'.bytes() },
-    tarutils.TarEntry{ name: 'folder', size: 0, is_dir: true, data: []u8{} }
-]
-tar_bytes := tarutils.pack_bytes(entries)
-unpacked := tarutils.unpack_bytes(tar_bytes) or { panic(err) }
-println('Unpacked ${unpacked.len} entries')
+files := ['src/main.v', 'v.mod', 'README.md']
+tarutils.create_tar('dist/bundle.tar', files)!
+println('Archive bundle created successfully!')
+```
 
-// Disk TAR archive creation and extraction
-tarutils.create_tar('backup.tar', ['file1.txt', 'file2.txt']) or { panic(err) }
-files_in_tar := tarutils.list_tar_entries('backup.tar') or { panic(err) }
-println('Files in tar: ${files_in_tar}')
-content := tarutils.read_tar_file('backup.tar', 'file1.txt') or { '' }
-println('Content: ${content}')
-tarutils.extract_tar('backup.tar', './output_dir') or { panic(err) }
+#### `create_tar_from_dir(tar_path string, src_dir string) !int`
+
+Recursively bundles an entire folder tree into a `.tar` archive. Returns the total count of files packaged.
+
+```v
+import tarutils
+
+count := tarutils.create_tar_from_dir('backup/assets.tar', 'assets/')!
+println('Archived ${count} files from assets folder')
+```
+
+#### `extract_tar(tar_path string, dest_dir string) !bool`
+
+Unpacks all files from a `.tar` archive into the target destination directory (with built-in path-traversal safety protection against `../` malicious paths).
+
+```v
+import tarutils
+
+tarutils.extract_tar('dist/bundle.tar', 'extracted_files/')!
+println('Extracted all files to extracted_files/')
+```
+
+---
+
+### Compressed `.tar.gz` Archives
+
+#### `create_tar_gz_from_dir` & `extract_tar_gz`
+
+Directly bundles and compresses directory trees in a single step.
+
+```v
+import tarutils
+
+// Pack and compress directory into release.tar.gz
+count := tarutils.create_tar_gz_from_dir('release.tar.gz', 'build/')!
+println('Compressed ${count} files into release.tar.gz')
+
+// Extract compressed archive
+tarutils.extract_tar_gz('release.tar.gz', 'unpacked_release/')!
+```
+
+---
+
+### In-Memory Inspection & Direct File Reading
+
+#### `list_tar_entries(tar_path string) ![]TarEntry`
+
+Inspects archive contents without unpacking anything to the filesystem.
+
+```v
+import tarutils
+
+entries := tarutils.list_tar_entries('dist/bundle.tar')!
+
+for entry in entries {
+    println('File: ${entry.name:20} Size: ${entry.size} bytes')
+}
+```
+
+#### `read_tar_file(tar_path string, filename string) !string`
+
+Reads the contents of a specific file directly from inside an archive into memory.
+
+```v
+import tarutils
+
+// Read README.md without extracting the entire archive
+readme_text := tarutils.read_tar_file('dist/bundle.tar', 'README.md')!
+println('README contents:
+${readme_text}')
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5651,7 +7028,7 @@ tarutils.extract_tar('backup.tar', './output_dir') or { panic(err) }
 
 # templateutils API
 
-**Plain-language purpose:** Use these tools to fill a reusable piece of text with your own names, dates, and values. The examples start with a message containing placeholders and show how a completed message is produced.
+**Plain-language purpose:** Use `templateutils` for text formatting and templating: simple placeholder substitution (`{{key}}`), dynamic callback replacement, and full logic-less Mustache templates (loops, conditionals, and HTML escaping).
 
 Import statement:
 
@@ -5659,73 +7036,106 @@ Import statement:
 import templateutils
 ```
 
-Fast, lightweight string templating with fallback default values, custom resolver callbacks, and ANSI markdown rendering for terminal interfaces.
+### Simple String Interpolation
 
-<a id="templateutils-functions"></a>
+#### `render_template(template string, vars map[string]string) string`
 
-## Functions
-
-### `render_template(tpl string, vars map[string]string) string`
-
-Renders `{{key}}` and `{{key | default}}` placeholders using a dictionary of string values. If a key is missing and has no default specified, the placeholder remains untouched.
+Replaces `{{key}}` tokens with matching values from a dictionary. Unmatched tokens remain untouched.
 
 ```v
 import templateutils
 
-tpl := 'Hello {{name}}! Welcome to {{app | Antigravity IDE}} on {{os}}.'
+tpl := 'Hello, {{name}}! You have {{count}} unread messages in {{folder}}.'
 vars := {
-    'name': 'Alice'
-    'os':   'macOS'
+    'name':   'Alex'
+    'count':  '5'
+    'folder': 'Inbox'
 }
 
 rendered := templateutils.render_template(tpl, vars)
-println(rendered) // "Hello Alice! Welcome to Antigravity IDE on macOS."
+println(rendered)
+// Output: Hello, Alex! You have 5 unread messages in Inbox.
 ```
 
----
+#### `render_template_fn(template string, resolver fn(string) ?string) string`
 
-### `render_template_fn(tpl string, resolver fn (key string) ?string) string`
-
-Renders placeholders dynamically using a callback function. Supports fallback defaults if the resolver returns `none`.
+Dynamically resolves placeholders using a custom lookup function (great for database queries or environment variable expansion).
 
 ```v
 import templateutils
 import os
 
-tpl := 'Running user: {{USER | unknown}}, Path: {{HOME}}'
+tpl := 'Running on host: {{HOSTNAME}}, home directory: {{HOME}}'
 
 rendered := templateutils.render_template_fn(tpl, fn (key string) ?string {
     val := os.getenv(key)
-    if val.len > 0 {
-        return val
-    }
-    return none
+    return if val != '' { val } else { none }
 })
-
 println(rendered)
 ```
 
 ---
 
-### `render_markdown_ansi(markdown string) string`
+### Logic-Less Mustache Templates (`render_mustache`)
 
-Renders CommonMark markdown subsets into styled ANSI terminal output, transforming:
+#### `render_mustache(template string, data map[string]Value) !string`
 
-- Headings (`#`, `##`, `###`) into bold underlined headers
-- `**bold**` into bold ANSI text
-- `*italic*` into italic ANSI text
-- `` `code` `` into inverted/colored code text
-- Code fences (` ``` `) into indented blocks
-- Blockquotes (`> `) into styled callout quotes
-- Bullet lists (`- ` or `* `) into clean bullet markers
+Full Mustache templating supporting variable tags, conditional sections, loops, and raw unescaped values.
 
-````v
+```v
 import templateutils
 
-md := '# Installation Guide\nTo install `vlang_utils`, run:\n```\nv install codecaine.vlang_utils\n```\n> **Note:** Requires V 0.4+.'
+// Template demonstrating variables, conditionals, and loops
+tpl := '
+<h1>{{title}}</h1>
+{{#has_items}}
+<ul>
+  {{#items}}
+  <li>{{name}} - \${{price}}</li>
+  {{/items}}
+</ul>
+{{/has_items}}
+{{^has_items}}
+<p>No items found in stock.</p>
+{{/has_items}}
+'
 
-println(templateutils.render_markdown_ansi(md))
-````
+// Prepare template data
+data := {
+    'title':     templateutils.str_val('Store Catalog')
+    'has_items': templateutils.bool_val(true)
+    'items':     templateutils.list_val([
+        templateutils.map_val({
+            'name':  templateutils.str_val('Mechanical Keyboard')
+            'price': templateutils.str_val('89.99')
+        }),
+        templateutils.map_val({
+            'name':  templateutils.str_val('Wireless Mouse')
+            'price': templateutils.str_val('49.50')
+        })
+    ])
+}
+
+output := templateutils.render_mustache(tpl, data)!
+println(output)
+```
+
+---
+
+### Terminal Markdown Rendering
+
+#### `render_markdown_ansi(markdown string) string`
+
+Renders basic Markdown headers, bold, and bullet points directly to terminal ANSI color codes.
+
+```v
+import templateutils
+
+md := '# Important Notice
+**All servers** will restart at midnight.'
+colored_terminal_text := templateutils.render_markdown_ansi(md)
+println(colored_terminal_text)
+```
 
 [▲ Back to Table of Contents](#table-of-contents)
 
@@ -5847,7 +7257,7 @@ sw.reset()
 
 # tomlutils API
 
-**Plain-language purpose:** Use these tools to read TOML settings files, which are human-friendly text files for app configuration. The examples show a short configuration and then retrieve values by their descriptive names.
+**Plain-language purpose:** Use `tomlutils` to parse and load configuration files (`config.toml`, `v.mod`), read typed configuration parameters with safe defaults, and encode/decode V structs directly to and from TOML.
 
 Import statement:
 
@@ -5855,48 +7265,112 @@ Import statement:
 import tomlutils
 ```
 
-### `TomlDoc` & Parsing Functions
+### Parsing TOML Documents
 
-High-level querying and configuration loading for TOML documents.
+#### `parse(text string) !TomlDoc` & `parse_file(path string) !TomlDoc`
 
-- `parse(text string) !TomlDoc`
-- `parse_file(path string) !TomlDoc`
-- `has(key string) bool`
-- `get_string(key string, default_val string) string`
-- `get_int(key string, default_val int) int`
-- `get_i64(key string, default_val i64) i64`
-- `get_bool(key string, default_val bool) bool`
-- `get_f64(key string, default_val f64) f64`
-- `get_strings(key string) []string`
-- `get_ints(key string) []int`
+Parses TOML text or files into an easy-to-query `TomlDoc` object.
 
 ```v
 import tomlutils
 
-toml_text := '
-title = "Config Demo"
+toml_content := '
+[server]
+host = "127.0.0.1"
+port = 8080
+enable_ssl = false
+timeout_seconds = 30.5
+
 [database]
-server = "127.0.0.1"
-port = 5432
-max_conn = 10000000000
-enabled = true
-ports = [ 8080, 8081 ]
-tags = [ "prod", "db" ]
+name = "production_db"
+max_connections = 50
+
+[features]
+flags = ["auth", "billing", "metrics"]
 '
 
-doc := tomlutils.parse(toml_text) or { panic(err) }
-file_doc := tomlutils.parse_file('config.toml') or { doc }
-println('File doc: ' + file_doc.get_string('title', ''))
+doc := tomlutils.parse(toml_content)!
+```
 
-title := doc.get_string('title', 'untitled')
-server := doc.get_string('database.server', 'localhost')
-port := doc.get_int('database.port', 5432)
-max_conn := doc.get_i64('database.max_conn', 0)
-enabled := doc.get_bool('database.enabled', false)
+---
 
-ports := doc.get_ints('database.ports')
-tags := doc.get_strings('database.tags')
-println('${title}: ${server}:${port}, max=${max_conn}, tags=${tags}')
+### Typed Getters with Defaults (Zero Guesswork)
+
+Extract values safely. If a key is missing or formatted incorrectly, the provided default is returned automatically without crashing.
+
+```v
+import tomlutils
+
+doc := tomlutils.parse('
+app_name = "Dashboard"
+port = 3000
+debug = true
+rates = [1.2, 3.4, 5.6]
+')!
+
+// Strings
+app := doc.get_string('app_name', 'DefaultApp') // "Dashboard"
+missing := doc.get_string('missing_key', 'fallback') // "fallback"
+
+// Numbers & Booleans
+port := doc.get_int('port', 8080)   // 3000
+debug := doc.get_bool('debug', false) // true
+
+// String and Float Arrays
+tags := doc.get_strings('tags')     // [] (if missing)
+rates := doc.get_f64s('rates')      // [1.2, 3.4, 5.6]
+
+// Check key existence
+if doc.has('port') {
+    println('Port is configured')
+}
+```
+
+---
+
+### Struct Decoding & Encoding
+
+#### `decode[T](text string) !T` & `encode[T](value T) string`
+
+Directly deserialize TOML configurations into strongly-typed V structs and serialize them back.
+
+```v
+import tomlutils
+
+struct ServerConfig {
+pub:
+    host string
+    port int
+    ssl  bool
+}
+
+raw_toml := '
+host = "0.0.0.0"
+port = 9000
+ssl = true
+'
+
+// Parse into struct
+cfg := tomlutils.decode[ServerConfig](raw_toml)!
+println('Server listening on ${cfg.host}:${cfg.port} (SSL: ${cfg.ssl})')
+
+// Serialize struct back to TOML
+encoded := tomlutils.encode(cfg)
+println('Serialized TOML:
+${encoded}')
+```
+
+#### `to_json() string`
+
+Converts a loaded TOML configuration into a standard JSON string.
+
+```v
+import tomlutils
+
+doc := tomlutils.parse('title = "App Config"
+version = 2')!
+json_str := doc.to_json()
+println('Converted JSON: ${json_str}') // {"title":"App Config","version":2}
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5904,25 +7378,124 @@ println('${title}: ${server}:${port}, max=${max_conn}, tags=${tags}')
 ---
 
 <a id="urlutils"></a><a id="urlutils-api"></a>
-## `urlutils` API Reference
 
-RFC 3986 URL parsing, path segmentation, query manipulation, and credential redaction.
+# urlutils API
+
+**Plain-language purpose:** Use `urlutils` to parse, construct, and normalize web URLs, inspect query parameters, resolve relative links against a base address (RFC 3986), check CORS same-origin policies, and sanitize credentials from log outputs.
+
+Import statement:
+
+```v
+import urlutils
+```
+
+### Parsing & URL Inspection
+
+#### `parse_url(raw_url string) !URL`
+
+Breaks a URL down into its standard components (`scheme`, `host`, `port`, `path`, `query`, `fragment`).
 
 ```v
 import urlutils
 
-// Parse URL
-u := urlutils.parse_url('https://admin:secret123@api.example.com:8443/v1/users?page=1#top')!
-println('Host: ${u.host_with_port()}') // "api.example.com:8443"
-println('Path: ${u.path_segments()}')  // ["v1", "users"]
+u := urlutils.parse_url('https://admin:secret@api.example.com:8443/v1/users?role=admin&sort=asc#results')!
 
-// Clean path joining
-joined := urlutils.join_path('https://example.com/api', 'v1', 'profile')
-println(joined) // "https://example.com/api/v1/profile"
+println('Scheme:   ${u.scheme}')             // "https"
+println('Host:     ${u.host}')               // "api.example.com"
+println('Port:     ${u.port}')               // 8443
+println('Path:     ${u.path}')               // "/v1/users"
+println('Query:    ${u.query}')              // "role=admin&sort=asc"
+println('Fragment: ${u.fragment}')           // "results"
+println('Origin:   ${u.origin()}')           // "https://api.example.com:8443"
+println('Segments: ${u.path_segments()}')    // ['v1', 'users']
+```
 
-// Redact credentials for safe logging
-redacted := urlutils.redact_credentials('postgres://user:mypassword@db:5432/main')
-println(redacted) // "postgres://user:***@db:5432/main"
+---
+
+### Query Parameter Manipulation
+
+#### `set_query_param`, `delete_query_param`, `encode_query`
+
+Build and modify query strings cleanly without string concatenation errors.
+
+```v
+import urlutils
+
+mut u := urlutils.parse_url('https://example.com/search')!
+
+// Add query parameters
+u.set_query_param('q', 'vlang tutorials')
+u.set_query_param('page', '1')
+u.set_query_param('filter', 'recent')
+
+println('Updated URL: ${u.str()}')
+// https://example.com/search?filter=recent&page=1&q=vlang+tutorials
+
+// Remove parameter
+u.delete_query_param('filter')
+println('After removal: ${u.str()}')
+
+// Encode standalone parameter map
+query_string := urlutils.encode_query({
+    'category': 'books'
+    'limit':    '25'
+})
+println('Query string: ${query_string}') // category=books&limit=25
+```
+
+---
+
+### RFC 3986 Relative URL Resolution
+
+#### `resolve_reference(base string, ref string) !string`
+
+Resolves relative paths, links, and dot segments against a base URL (exactly how web browsers handle `<a href="...">` links).
+
+```v
+import urlutils
+
+base := 'https://example.com/docs/api/v1/'
+
+// Relative link in same directory
+link1 := urlutils.resolve_reference(base, 'users.html')!
+println(link1) // "https://example.com/docs/api/v1/users.html"
+
+// Relative link going up one directory
+link2 := urlutils.resolve_reference(base, '../overview.html')!
+println(link2) // "https://example.com/docs/overview.html"
+
+// Absolute root path
+link3 := urlutils.resolve_reference(base, '/contact')!
+println(link3) // "https://example.com/contact"
+```
+
+---
+
+### Security & Normalization Helpers
+
+#### `redact_credentials(raw_url string) string`
+
+Masks embedded usernames and passwords in database connection strings and HTTP URLs before writing them to logs.
+
+```v
+import urlutils
+
+db_url := 'postgres://app_user:ultra_secret_pw@db.internal.net:5432/main'
+safe_url := urlutils.redact_credentials(db_url)
+println(safe_url)
+// Output: postgres://app_user:***@db.internal.net:5432/main
+```
+
+#### `is_same_origin(a string, b string) bool`
+
+Checks if two URLs share the exact same scheme, host, and port (CORS origin validation).
+
+```v
+import urlutils
+
+println(urlutils.is_same_origin('https://myapp.com', 'https://myapp.com/api')) // true
+println(urlutils.is_same_origin('http://myapp.com', 'https://myapp.com'))      // false (http vs https)
+println(urlutils.is_same_origin('https://myapp.com', 'https://api.myapp.com')) // false (subdomain)
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5933,7 +7506,7 @@ println(redacted) // "postgres://user:***@db:5432/main"
 
 # validutils API
 
-**Plain-language purpose:** Use these tools to check whether a value looks valid before your program relies on it, such as an email address, web address, phone number, or date. Examples show a valid value and, where useful, an invalid one.
+**Plain-language purpose:** Use `validutils` to validate user input across web forms, APIs, and CLI tools: check emails, URLs, IP addresses, phone numbers, credit card numbers, UUIDs, and passwords, or chain multiple checks using a fluent `Validator` with clear error messages.
 
 Import statement:
 
@@ -5941,48 +7514,123 @@ Import statement:
 import validutils
 ```
 
-### Fast Data Validators
+### Standalone Validation Functions (Zero Guesswork)
 
-All validators return boolean true/false for instant conditional checks.
+#### Network & Web Addresses
 
 ```v
 import validutils
 
-// Email validation (RFC standard)
-valid_email := validutils.validate_email('developer@domain.com') // true
-bad_email   := validutils.validate_email('invalid..email@')       // false
+// Email validation
+println(validutils.validate_email('user@example.com')) // true
+println(validutils.validate_email('invalid-email@'))   // false
 
-// Web URL validation
-valid_url := validutils.validate_url('https://vlang.io/docs') // true
-bad_url   := validutils.validate_url('ftp://bad url')         // false
+// Web URLs
+println(validutils.validate_url('https://vlang.io'))    // true
+println(validutils.validate_url('not-a-valid-url'))     // false
 
-// IPv4 and IPv6 addresses
-v4_ok := validutils.validate_ip('192.168.1.1') // true
-v6_ok := validutils.validate_ip('::1')         // true
+// IP Addresses (IPv4, IPv6, CIDR blocks, Ports)
+println(validutils.validate_ip('192.168.1.1'))          // true
+println(validutils.validate_ipv6('2001:db8::1'))        // true
+println(validutils.validate_cidr('10.0.0.0/24'))        // true
+println(validutils.validate_port('8080'))               // true (1 to 65535)
+println(validutils.validate_port('99999'))              // false
+```
 
-// International and standard phone numbers
-phone_ok := validutils.validate_phone('+1-800-555-0199') // true
+#### Financial & Identification
 
-// Alphanumeric checks
-user_ok := validutils.validate_alphanumeric('AdminUser42') // true
+```v
+import validutils
 
-// Numeric ranges
-range_ok := validutils.validate_numeric_range(25.0, 18.0, 65.0) // true
+// Credit card Luhn algorithm check and card brand detection
+card := '4532015000000000'
+if validutils.validate_credit_card(card) {
+    brand := validutils.card_brand(card)
+    println('Valid card: ${brand}') // "Visa", "Mastercard", "Amex", etc.
+}
 
-// String length constraints
-len_ok := validutils.validate_length('my_password', 8, 32) // true
+// International Bank Account Number (IBAN) & Book ISBN
+println(validutils.validate_iban('GB82WEST12345698765432')) // true
+println(validutils.validate_isbn('978-0-13-110362-7'))       // true (C Programming Language)
+```
 
-// RFC 4122 UUID format
-uuid_ok := validutils.validate_uuid('e74a81d1-4db5-4b06-a077-80f0c0576395') // true
+#### Formats & Identifiers
 
-// JSON syntax validation
-json_ok := validutils.validate_json('{"status": "ok", "code": 200}') // true
+```v
+import validutils
 
-println('Emails: ${valid_email}, ${bad_email}')
-println('URLs: ${valid_url}, ${bad_url}')
-println('IPs: ${v4_ok}, ${v6_ok}')
-println('Phone: ${phone_ok}, User: ${user_ok}')
-println('Range: ${range_ok}, Len: ${len_ok}, UUID: ${uuid_ok}, JSON: ${json_ok}')
+// UUID & ULID identifiers
+println(validutils.validate_uuid('123e4567-e89b-12d3-a456-426614174000')) // true
+println(validutils.validate_ulid('01ARZ3NDEKTSV4RRFFQ69G5FAV'))           // true
+
+// Phone numbers (General & E.164 international)
+println(validutils.validate_phone('+1 (555) 123-4567')) // true
+println(validutils.validate_e164('+15551234567'))       // true
+
+// CSS Hex colors & URL Slugs
+println(validutils.validate_hex_color('#007acc'))       // true
+println(validutils.validate_slug('my-first-post-2026')) // true
+
+// Dates (YYYY-MM-DD) & JSON Strings
+println(validutils.validate_date('2026-10-10'))         // true
+println(validutils.validate_json('{"status":"ok"}'))    // true
+```
+
+---
+
+### Password Strength Analysis
+
+#### `password_strength(pw string) PasswordReport`
+
+Audits user passwords for length, entropy, character variety, common patterns, and gives concrete recommendations.
+
+```v
+import validutils
+
+report := validutils.password_strength('p@ssw0rd123!')
+println('Strength score (0 to 4): ${report.score}')
+println('Entropy bits:            ${report.entropy:.1f}')
+println('Is strong enough:        ${report.is_strong}')
+println('Feedback / suggestions:  ${report.feedback}')
+```
+
+---
+
+### Fluent Form Validator (`Validator`)
+
+Chain multiple field validation checks together and collect all validation errors in one structured pass.
+
+```v
+import validutils
+
+// Sample form submission data
+username := 'al'             // Too short (< 3 chars)
+email    := 'bad-email'      // Invalid format
+age      := 16.0             // Under 18
+role     := 'superadmin'     // Not in allowed list
+
+mut v := validutils.Validator{}
+
+v.required('username', username)
+ .min_len('username', username, 3)
+ .email('email', email)
+ .range('age', age, 18.0, 120.0)
+ .one_of('role', role, ['guest', 'user', 'admin'])
+
+if !v.is_valid() {
+    println('Form contains validation errors:')
+    for msg in v.error_messages() {
+        println('  • ${msg}')
+    }
+}
+/*
+Output:
+Form contains validation errors:
+  • username must be at least 3 characters
+  • email must be a valid email address
+  • age must be between 18 and 120
+  • role must be one of: guest, user, admin
+*/
 ```
 
 [▲ Back to Table of Contents](#table-of-contents)
@@ -5990,88 +7638,172 @@ println('Range: ${range_ok}, Len: ${len_ok}, UUID: ${uuid_ok}, JSON: ${json_ok}'
 ---
 
 <a id="webutils"></a><a id="webutils-api"></a>
-## `webutils` API Reference
 
-An Express-style web framework with a secure, EJS-compatible template engine. Everything people usually pull in from third-party packages is built in and depends only on vlib.
+# webutils API
 
-**Import statement:** `import webutils` (plus `import json2` when you pass template data).
+**Plain-language purpose:** Use `webutils` to build modern web applications and REST APIs in V with zero third-party dependencies. It includes an Express-style routing system, request body parsers, cookie sessions, CSRF protection, CORS headers, security headers (on by default), template rendering, and in-process HTTP testing.
 
-### Application and routing
-- `new_app(cfg AppConfig) &App`: create an app. Options include `views_dir`, `view_ext`, `view_cache`, `secret`, `max_body_bytes` (1 MB), `security_headers` (on), `security`, `trust_proxy`, `debug`, `strict_routing` and `https`.
-- `app.get/post/put/patch/delete/options/head/all(pattern, ...handlers)`: register routes.
-  - Patterns support `:id`, optional `:slug?` and wildcard `*path`.
-  - HEAD, OPTIONS and `405 Allow` are handled automatically.
-- `app.use(...)`, `app.use_at(prefix, ...)`, `app.group(prefix, ...mws)`: middleware and nestable route groups.
-- `app.static(prefix, root)`, `app.on_error(fn)`, `app.on_not_found(fn)`, `app.locals`: static files, custom error and 404 handlers, and template globals.
-- `app.listen(port)`, `app.listen_addr(addr)`, `app.server(addr)`: serve over HTTP.
-- `app.request(TestRequest)`: in-process testing without a socket, like supertest.
-- Errors: `return http_error(404, 'not found')` from a handler sends that status. Plain `error(...)` becomes a generic 500, and its message is only shown when `debug: true`.
+Import statement:
 
-### Context (`fn (mut c Context) !`)
-- Request:
-  - Parameters and query: `param`, `query`, `query_or`, `query_int`, `query_values`.
-  - Headers and body: `header`, `body`, `bind_json[T]`, `json_body`.
-  - Forms and uploads: `form_value`, `form_values`, `file`, `files`.
-  - Cookies: `cookie`, `signed_cookie`.
-  - Client: `ip`, `secure`, `hostname`, `xhr`, `accepts`.
-- Response:
-  - Status and headers: `status`, `set_header`, `vary`.
-  - Bodies: `text`, `html`, `send`, `json[T]`, `json_any`, `render(view, data)`, `render_struct`, `no_content`.
-  - Redirects: `redirect`, `safe_redirect`.
-  - Cookies: `set_cookie`, `set_signed_cookie`, `clear_cookie`.
-  - Files: `send_file`, `download`, `attachment`.
-- Sessions: `session_get`, `session_set`, `session_delete`, `session_destroy`, `session_regenerate`, `flash`, `take_flash`.
+```v
+import webutils
+import json2
+```
 
-### Built-in middleware
-| Middleware | Replaces |
-| :--- | :--- |
-| `security_headers(SecurityConfig)` (on by default, CSP nonce) | helmet |
-| `cors(CorsConfig)` | cors |
-| `rate_limit(RateLimitConfig)` | express-rate-limit |
-| `csrf(CsrfConfig)`, `c.csrf_token()` | csurf |
-| `sessions(SessionConfig)`, `sessions_with_store(store, cfg)` | express-session, connect-flash |
-| `logger(LoggerConfig)`, `request_id()` | morgan |
-| `compress(CompressConfig)` | compression |
-| `static_files(root, StaticConfig)` | serve-static |
-| `basic_auth(users, realm)`, `bearer_auth(verify)` | passport-http style auth |
-| `body_limit(n)`, `no_cache()` | body-parser limits, nocache |
+### Quick Start Example
 
-### Templates
-- `render_string(src, data)`, `compile(src, opts)`, `Template.render(data)`, `to_any[T](value)`.
-- `new_views(ViewConfig)` / `app.views`: `add(name, src)`, `load(name)`, `render(name, data)`, `clear_cache()`.
-- Syntax:
-  - Output: `<%= escaped %>`, `<%- raw %>`, `<%# comment %>`.
-  - Control flow: `if/elif/else/end`, `for i, x in xs` with `loop.index`, `first` and `last`, and `else` for empty lists.
-  - Variables, partials and layouts: `set`, `include`, `layout` + `<%- body %>`.
-  - Filters: `| upper | truncate(10) | date("YYYY-MM-DD")`.
-  - Trim markers: `-%>`, `<%_` and `_%>`.
-- Security: templates cannot execute code (sandboxed expressions), output is escaped by default, and includes cannot escape the views root. Include depth and output size are bounded.
+```v
+import webutils
+
+fn main() {
+    mut app := webutils.new_app(
+        secret: 'change-me-to-a-secure-random-secret-in-production'
+        debug:  true
+    )
+
+    // Basic GET endpoint
+    app.get('/', fn (mut c webutils.Context) ! {
+        return c.text('Hello from vlang_utils webutils!')
+    })
+
+    // Dynamic Route Parameters (e.g. /users/42)
+    app.get('/users/:id', fn (mut c webutils.Context) ! {
+        user_id := c.param('id')
+        return c.json({
+            'user_id': user_id
+            'status':  'active'
+        })
+    })
+
+    // Start server on port 8080 (in a real app, call app.listen(8080))
+}
+```
+
+---
+
+### Request Handling & Responses
+
+Inside every route handler `fn (mut c webutils.Context) !`, the `c` context provides convenient methods to read inputs and send responses:
+
+#### Reading Request Inputs
 
 ```v
 import webutils
 import json2
 
-mut app := webutils.new_app(secret: 'change-me')
-app.views.add('hello', '<h1>Hello <%= name | title %></h1>')!
-app.use(webutils.sessions(), webutils.csrf())
-app.get('/hello/:name', fn (mut c webutils.Context) ! {
-	c.render('hello', {
-		'name': json2.Any(c.param('name'))
-	})!
-})
-res := app.request(path: '/hello/ann')
-assert res.body == '<h1>Hello Ann</h1>'
-// app.listen(3000)
+struct CreateUserPayload {
+    name  string
+    email string
+}
+
+fn handle_signup(mut c webutils.Context) ! {
+    // 1. Path parameters (/profile/:username)
+    username := c.param('username')
+
+    // 2. Query string parameters (/search?page=2&sort=desc)
+    page := c.query_int('page', 1)
+    sort := c.query_or('sort', 'asc')
+
+    // 3. Request headers
+    auth_header := c.header('Authorization')
+
+    // 4. JSON Request Body
+    body_json := c.body()
+    user := json2.decode[CreateUserPayload](body_json)!
+
+    println('Creating user: ${user.name} (page: ${page}, sort: ${sort})')
+    return c.text('User created')
+}
 ```
 
-> [!TIP]
-> On V 0.5.2, return errors from handler closures with `return webutils.http_error(...)` or `return error(...)`. Returning a custom `IError` value from a closure makes the compiler run out of memory.
+#### Sending Responses
+
+```v
+import webutils
+
+fn handle_responses(mut c webutils.Context) ! {
+    // Plain text response
+    return c.text('Operation succeeded')
+
+    // JSON response (maps or structs)
+    return c.json({ 'success': 'true', 'code': '200' })
+
+    // HTML response
+    return c.html('<h1>Welcome to our site!</h1>')
+
+    // Custom HTTP status code
+    c.status(404)
+    return c.text('Resource not found')
+
+    // Redirect
+    return c.redirect('/login', 302)
+}
+```
+
+---
+
+### Route Groups & Middleware
+
+Organize endpoints into logical prefixes (e.g. `/api/v1`) and apply authentication or logging middleware.
+
+```v
+import webutils
+
+fn main() {
+    mut app := webutils.new_app(secret: 'my-secret')
+
+    // 1. Global Middleware (runs on every request)
+    app.use(fn (mut c webutils.Context) ! {
+        println('[REQUEST] ${c.req.method} ${c.req.url}')
+        c.next()! // Proceed to next handler in chain
+    })
+
+    // 2. API Route Group with prefix
+    mut api := app.group('/api/v1')
+
+    api.get('/health', fn (mut c webutils.Context) ! {
+        return c.json({ 'status': 'healthy', 'version': '2.0.0' })
+    })
+
+    api.get('/items', fn (mut c webutils.Context) ! {
+        return c.json(['laptop', 'keyboard', 'mouse'])
+    })
+}
+```
+
+---
+
+### In-Process Unit Testing (`app.request`)
+
+Test your web endpoints directly in memory without binding network ports or running background servers.
+
+```v
+import webutils
+
+fn test_api_endpoints() {
+    mut app := webutils.new_app(secret: 'test-secret')
+
+    app.get('/api/ping', fn (mut c webutils.Context) ! {
+        return c.text('pong')
+    })
+
+    // Simulate an in-process HTTP GET request
+    res := app.request(webutils.TestRequest{
+        method: 'GET'
+        path:   '/api/ping'
+    })
+
+    assert res.status_code == 200
+    assert res.body == 'pong'
+    println('API test passed!')
+}
+```
 
 [▲ Back to Table of Contents](#table-of-contents)
 
 ---
 
-<a id="advanced-additions--enhancements"></a><a id="advanced-additions-enhancements"></a>
+<a id="advanced-additions--enhancements"></a>
 
 # Advanced Additions & Enhancements
 
